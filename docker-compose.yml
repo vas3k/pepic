@@ -1,0 +1,8 @@
+version: "3.8"
+services:
+  app:
+    build: .
+    volumes:
+      - ./static/uploads:/uploads
+    ports:
+      - 8118:8118

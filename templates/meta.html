@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset=utf-8/>
+    <meta name="description" content="description">
+    <title>PEPIC: Metadata</title>
+    <link href="https://fonts.googleapis.com/css?family=Ubuntu:400,500&display=swap&subset=cyrillic" rel="stylesheet">
+</head>
+<style>
+    html, body {
+        font-family: "Ubuntu", serif;
+        position: relative;
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+    }
+
+    .header {
+        font-size: 42px;
+        font-weight: bold;
+        width: 200px;
+        padding: 20px;
+        margin: 40px auto 0;
+        text-align: center;
+    }
+
+    .upload {
+        position: absolute;
+        top: 130px;
+        left: 50%;
+        width: 100%;
+        max-width: 550px;
+        height: 450px;
+        transform: translateX(-50%);
+        box-shadow: 20px 20px 50px rgba(51, 51, 51, 0.2);
+        border-radius: 50px;
+    }
+
+    .upload-placeholder {
+        font-size: 40px;
+        opacity: 0.4;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+    }
+
+    .upload-form, .upload-form-file {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 10;
+        width: 100%;
+        outline: none;
+        text-align: center;
+        box-sizing: border-box;
+        opacity: 0;
+    }
+
+    .upload-form-submit {
+        -webkit-appearance: none;
+        position: absolute;
+        top: 0;
+        left: -5000px;
+    }
+</style>
+<body>
+<div class="header">
+    {{ .name }}
+</div>
+
+{{ range $_, $element := .blocks }}
+    {{ $element.Title }}<br>
+    {{ $element.Template }}<br><br>
+{{ end }}
+</body>
+</html>

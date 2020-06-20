@@ -1,0 +1,45 @@
+global:
+  host: 0.0.0.0
+  port: 8118
+  secret_code: "" # secret word to protect you from strangers (empty by default)
+  max_upload_size: "500M" # number + K, M, G, T or P
+
+storage:
+  type: fs
+  dir: static/uploads/
+
+images:
+  store_originals: false # use "true" if you want byte-by-byte match of uploaded files (useful for photo blogs)
+  original_length: 1200 # auto-resize originals (only if store_originals=false)
+  auto_convert: "image/jpeg" # mime type to auto-convert uploaded images ("image/jpeg", "image/png" or false)
+  live_resize: true # enables special URLs that return resized images (increases storage usage)
+  jpeg_quality: 95 # default quality of any saved jpeg
+  png_compression: 0  # 0 - default, -1 - no compression, -2 - best speed, -3 - best compression
+
+videos:
+  store_originals: false # use "true" if you want to store original files (browser compatibility is on you)
+  original_length: 480 # resize uploaded videos (only if store_originals=false)
+  live_resize: false # turned off by default to save disk space and your cpu (always returns original)
+  auto_convert: "video/mp4" # mime type to auto-convert uploaded images (for example "video/mp4")
+  ffmpeg:
+    temp_dir: "/tmp" # temp directory for transcoding
+    preset: "slow" # ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow, placebo
+    crf: 24 # quality factor — 0-51, where 0 is lossless, 51 — pixelated shit. 23-28 recommended.
+    buffer_size: 1024000
+    video_codec: "libx264"
+    video_bitrate: "512k"
+    video_profile: "main"
+    audio_codec: "aac"
+    audio_bitrate: "128k"
+    mov_flags: "+faststart"
+    pix_fmt: "yuv420p"
+
+meta:
+  enabled: true  # "true" — show meta.html page after uploads, "false" — redirect straight to uploaded image or video
+  blocks:  # you can add your custom blocks to make it easier to copy-paste
+    - title: "Original"
+      template: "{{ .FullImage }}"
+    - title: "HTML"
+      template: "<a href=\"{{ .FullImage }}\">{{ .FullImage }}</a>"
+    - title: "Markdown"
+      template: "![]({{ .FullImage }})"
