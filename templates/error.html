@@ -1,15 +1,16 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset=utf-8/>
-    <meta name="description" content="description">
-    <title>PEPIC: Error</title>
-    <link href="https://fonts.googleapis.com/css?family=Ubuntu:400,500&display=swap&subset=cyrillic" rel="stylesheet">
-</head>
-<body>
-<div class="error">
-    {{ .code }}
-    {{ .message }}
-</div>
-</body>
-</html>
+{% extends "base.html" %}
+
+{% block title %}Error {{ Code }}{% endblock %}
+
+{% block main %}
+    <div class="logo">
+        <a href="/"><img src="/static/images/logo.png">&nbsp;PEPIC</a>
+    </div>
+
+    <div class="block error">
+        <div>
+            <div class="error-title">{{ Code }}</div>
+            <div class="error-message">{{ Message }}</div>
+        </div>
+    </div>
+{% endblock %}

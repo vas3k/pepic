@@ -18,7 +18,7 @@ func UploadFile(filename string, data []byte) (*ProcessedFile, error) {
 		Data:     data,
 	}
 
-	if isImage(file.Mime) {
+	if file.IsImage() {
 		log.Printf("Processing image: %s", file.Mime)
 		err := calculateHashName(file)
 		if err != nil {
@@ -47,7 +47,7 @@ func UploadFile(filename string, data []byte) (*ProcessedFile, error) {
 		return file, nil
 	}
 
-	if isVideo(file.Mime) {
+	if file.IsVideo() {
 		log.Printf("Processing video: %s", file.Mime)
 		err := calculateHashName(file)
 		if err != nil {
@@ -104,7 +104,7 @@ func ResizeFile(filename string, length int) (*ProcessedFile, error) {
 		return file, nil
 	}
 
-	if isImage(file.Mime) {
+	if file.IsImage() {
 		if config.App.Images.LiveResize {
 			err := retrieveFileData(file, "orig")
 			if err != nil {
@@ -124,7 +124,7 @@ func ResizeFile(filename string, length int) (*ProcessedFile, error) {
 		return file, nil
 	}
 
-	if isVideo(file.Mime) {
+	if file.IsVideo() {
 		if config.App.Videos.LiveResize {
 			err := retrieveFileData(file, "orig")
 			if err != nil {

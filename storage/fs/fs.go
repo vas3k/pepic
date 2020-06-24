@@ -1,6 +1,7 @@
 package fs
 
 import (
+	"github.com/labstack/echo/v4"
 	"io/ioutil"
 	"os"
 	"path"
@@ -53,4 +54,22 @@ func (fs *FileSystemStorage) IsExists(objectName string) bool {
 	}
 
 	return true
+}
+
+func (fs *FileSystemStorage) Size(objectName string) int64 {
+	file, err := os.Open(path.Join(fs.dir, objectName))
+	defer file.Close()
+	if err != nil {
+		return 0
+	}
+
+	info, err := file.Stat()
+	if err != nil {
+		return 0
+	}
+	return info.Size()
+}
+
+func (fs *FileSystemStorage) Proxy(c echo.Context, objectName string) error {
+	return c.File(path.Join(fs.dir, objectName))
 }

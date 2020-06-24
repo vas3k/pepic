@@ -5,35 +5,15 @@ import (
 	"encoding/hex"
 	"github.com/vas3k/pepic/storage"
 	"log"
-	"mime"
 	"path"
 	"strings"
 )
 
-type ProcessedFile struct {
-	Filename string
-	Mime     string
-	Path     string
-	Data     []byte
-}
-
-var canonicalExtensions = map[string]string{
-	".jpeg": ".jpg",
-	".qt":   ".mov",
-}
-
 func calculateHashName(file *ProcessedFile) error {
 	log.Printf("Calculating file name: %s", file.Filename)
-	exts, err := mime.ExtensionsByType(file.Mime)
+	ext, err := extensionByMimeType(file.Mime)
 	if err != nil {
 		return err
-	}
-
-	var ext string
-	if val, ok := canonicalExtensions[exts[0]]; ok {
-		ext = val
-	} else {
-		ext = exts[0]
 	}
 
 	sum := sha256.Sum256(file.Data)

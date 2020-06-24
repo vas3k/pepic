@@ -1,10 +1,10 @@
 package handlers
 
 import (
-	"fmt"
 	"github.com/labstack/echo/v4"
 	"github.com/vas3k/pepic/config"
 	"github.com/vas3k/pepic/processing"
+	"github.com/vas3k/pepic/storage"
 	"net/http"
 	"strconv"
 )
@@ -16,7 +16,7 @@ func GetOriginalFile(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "File not found")
 	}
-	return xAccelRedirect(c, file)
+	return sendFile(c, file)
 }
 
 func GetResizedFile(c echo.Context) error {
@@ -39,11 +39,9 @@ func GetResizedFile(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err)
 	}
 
-	return xAccelRedirect(c, file)
+	return sendFile(c, file)
 }
 
-func xAccelRedirect(c echo.Context, file *processing.ProcessedFile) error {
-	c.Response().Header().Set("Content-Type", file.Mime)
-	c.Response().Header().Set("X-Accel-Redirect", "/uploads/"+file.Path)
-	return c.String(http.StatusOK, fmt.Sprintf("OK %s", file.Path))
+func sendFile(c echo.Context, file *processing.ProcessedFile) error {
+	return storage.Main.Proxy(c, file.Path)
 }

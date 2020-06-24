@@ -139,4 +139,4 @@ Temporary Items
 .apdisk
 
 # Exclude upload folders
-static/uploads/*
+uploads/*

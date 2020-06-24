@@ -7,14 +7,16 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
+	"strings"
 )
 
 type UploadResult struct {
+	Filename string `json:"filename"`
 	Url string `json:"url"`
 }
 
 func UploadMultipart(c echo.Context) error {
-	if err := CheckSecretCode(c); err != nil {
+	if _, err := CheckSecretCode(c); err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, "Secret code required")
 	}
 
@@ -39,8 +41,13 @@ func UploadMultipart(c echo.Context) error {
 		}
 
 		uploaded = append(uploaded, UploadResult{
-			Url: "/" + result.Filename,
+			Filename: result.Filename,
+			Url: result.Url(),
 		})
+	}
+
+	if len(uploaded) == 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, "No files to upload")
 	}
 
 	return renderResults(uploaded, c)
@@ -52,12 +59,11 @@ func multipartToBytes(multipartFile *multipart.FileHeader) ([]byte, error) {
 		return nil, err
 	}
 	defer src.Close()
-
 	return ioutil.ReadAll(src)
 }
 
 func UploadBytes(c echo.Context) error {
-	if err := CheckSecretCode(c); err != nil {
+	if _, err := CheckSecretCode(c); err != nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, "Secret code required")
 	}
 
@@ -78,11 +84,11 @@ func UploadBytes(c echo.Context) error {
 
 func renderResults(results []UploadResult, c echo.Context) error {
 	// TODO: check for JSON accept-content and return it
-	return c.JSON(http.StatusCreated, results)
 
-	//if len(results) == 1 && !config.App.Meta.Enabled {
-	//	return c.Redirect(http.StatusTemporaryRedirect, results[0].Url)
-	//}
-	//
-	//return c.Redirect(http.StatusTemporaryRedirect, "/meta" + results[0].Url)
+	var filenames []string
+	for _, result := range results {
+		filenames = append(filenames, result.Filename)
+	}
+
+	return c.Redirect(http.StatusFound, "/meta/" + strings.Join(filenames, ","))
 }

@@ -9,18 +9,19 @@ type Config struct {
 	Global struct {
 		Host          string `yaml:"host" env:"HOST" env-default:"0.0.0.0"`
 		Port          int    `yaml:"port" env:"PORT" env-default:"8118"`
+		BaseUrl       string `yaml:"base_url" env:"BASE_URL" env-default:"http://0.0.0.0:8118/"`
 		SecretCode    string `yaml:"secret_code" env:"SECRET_CODE" env-default:""`
 		MaxUploadSize string `yaml:"max_upload_size" env:"MAX_UPLOAD_SIZE" env-default:""`
 	} `yaml:"global"`
 
 	Storage struct {
 		Type string `yaml:"type" env:"STORAGE_TYPE" env-default:"fs"`
-		Dir  string `yaml:"dir" env:"STORAGE_DIR" env-default:"static/uploads/"`
-	} `yaml:"static"`
+		Dir  string `yaml:"dir" env:"STORAGE_DIR" env-default:"uploads/"`
+	} `yaml:"storage"`
 
 	Images struct {
 		StoreOriginals bool   `yaml:"store_originals" env:"IMAGE_STORE_ORIGINALS" env-default:"false"`
-		OriginalLength int    `yaml:"original_length" env:"IMAGE_ORIGINAL_LENGTH" env-default:"1600"`
+		OriginalLength int    `yaml:"original_length" env:"IMAGE_ORIGINAL_LENGTH" env-default:"1800"`
 		LiveResize     bool   `yaml:"live_resize" env:"IMAGE_LIVE_RESIZE" env-default:"true"`
 		AutoConvert    string `yaml:"auto_convert" env:"IMAGE_AUTO_CONVERT" env-default:"false"`
 		JPEGQuality    int    `yaml:"jpeg_quality" env:"IMAGE_JPEG_QUALITY" env-default:"95"`
@@ -48,7 +49,6 @@ type Config struct {
 	} `yaml:"videos"`
 
 	Meta struct {
-		Enabled bool `yaml:"enabled" env:"META_ENABLED" env-default:"true"`
 		Blocks  []struct {
 			Title    string `yaml:"title"`
 			Template string `yaml:"template"`

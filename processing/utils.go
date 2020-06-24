@@ -7,6 +7,27 @@ import (
 	"strings"
 )
 
+var canonicalExtensions = map[string]string{
+	".jpeg": ".jpg",
+	".qt":   ".mov",
+}
+
+func extensionByMimeType(mimeType string) (string, error) {
+	exts, err := mime.ExtensionsByType(mimeType)
+	if err != nil {
+		return "", err
+	}
+
+	var ext string
+	if val, ok := canonicalExtensions[exts[0]]; ok {
+		ext = val
+	} else {
+		ext = exts[0]
+	}
+
+	return ext, nil
+}
+
 func splitFileNameNGrams(filename string, n int, stop int) string {
 	ext := path.Ext(filename)
 	base := strings.TrimSuffix(filename, ext)

@@ -4,14 +4,13 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/disintegration/imaging"
 	"github.com/vas3k/pepic/config"
 	"image"
 	"image/color"
+	"image/draw"
 	"image/png"
 	"log"
-	"mime"
-
-	"github.com/disintegration/imaging"
 )
 
 func isImage(mimeType string) bool {
@@ -68,16 +67,15 @@ func convertImage(file *ProcessedFile, newMimeType string) error {
 		return err
 	}
 
-	ext, _ := mime.ExtensionsByType(newMimeType)
-	newExt := ext[0]
+	newExt, _ := extensionByMimeType(newMimeType)
 	imageFormat, err := imaging.FormatFromExtension(newExt)
 	if err != nil {
 		return err
 	}
 
-	// fix PNG transparency if needed
-	if image.ColorModel() == color.RGBAModel && newMimeType == "image/jpeg" {
-		fixBlackPNGBackground(&image)
+	// fix PNG -> JPG transparency if needed
+	if file.Mime == "image/png" && newMimeType == "image/jpeg" {
+		image = fixPNGTransparency(image)
 	}
 
 	// encode the result back to bytes
@@ -103,7 +101,9 @@ func convertImage(file *ProcessedFile, newMimeType string) error {
 	return nil
 }
 
-func fixBlackPNGBackground(image *image.Image) error {
-	// TODO: this
-	return nil
+func fixPNGTransparency(img image.Image) image.Image {
+	newImg := image.NewRGBA(img.Bounds())
+	draw.Draw(newImg, newImg.Bounds(), &image.Uniform{color.White}, image.Point{}, draw.Src)
+	draw.Draw(newImg, newImg.Bounds(), img, img.Bounds().Min, draw.Over)
+	return image.Image(newImg)
 }

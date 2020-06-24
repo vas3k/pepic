@@ -8,8 +8,8 @@ import (
 )
 
 type JSONError struct {
-	code    int
-	message string
+	Code    int		`json:"code"`
+	Message string  `json:"message"`
 }
 
 func ErrorHandler(err error, c echo.Context) {
@@ -28,14 +28,14 @@ func ErrorHandler(err error, c echo.Context) {
 			error JSONError
 		}{
 			error: JSONError{
-				code:    code,
-				message: message,
+				Code:    code,
+				Message: message,
 			},
 		})
 	} else {
 		c.Render(code, "error.html", map[string]interface{}{
-			"code":    code,
-			"message": message,
+			"Code":    code,
+			"Message": message,
 		})
 	}
 }
