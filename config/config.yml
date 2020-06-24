@@ -37,7 +37,7 @@ videos:
 
 meta:
   blocks:  # you can add your custom blocks to make it easier to copy-paste
-    - title: "Original"
+    - title: "URL"
       template: "{{ file.Url }}"
     - title: "HTML link"
       template: "<a href=\"{{ file.Url }}\">{{ file.Filename }}</a>"

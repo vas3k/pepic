@@ -5,10 +5,10 @@
 </div>
 
 PEPIC is a small proxy for uploading and serving pictures and videos. 
-I use it in my [pet-projects](https://github.com/vas3k/vas3k.club) and for [my blog](https://vas3k.com). 
-It can convert, resize and optimize uploaded media in-flight to save me monies and bandwidth. 
+I use it for my [pet-projects](https://github.com/vas3k/vas3k.club) and on [my blog](https://vas3k.com). 
+PEPIC can convert, resize and optimize media files in-flight to save you monies and bandwidth. And it's dead simple.
 
-It's not meant to be used by anyone else, but if you're brave enough — give it a try. Maybe we become friends.
+It's not meant to be used by anyone else, but if you're brave enough — give it a try. Maybe we'll become friends.
 
 ## 🔮 Building and playing with it locally
 
@@ -60,7 +60,10 @@ global:
 docker run -p 8118:8118 -v /host/dir/uploads:/app/uploads $(docker build -q .)
 ```
 
-Don't forger to periodically backup the `/host/dir/uploads` directory just in case :)
+If you prefer docker-compose, you can use it too. Check out the included [docker-compose.yml](docker-compose.yml). 
+You can easily transform it into your favourite k8s config or whatever is fashionable this summer. 
+
+> 👍 Don't forger to periodically backup the `/host/dir/uploads` directory just in case :)
 
  3. Use nginx or any other server to proxy calls from your domain (media.mydomain.org) to pepic backend (0.0.0.0:8118)
 

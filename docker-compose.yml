@@ -2,7 +2,12 @@ version: "3.8"
 services:
   app:
     build: .
+    environment:
+      - BASE_URL = "https://i.vas3k.ru"
+      - STORAGE_DIR=/uploads
+      - SECRET_CODE=wowsosecret
+      - IMAGE_ORIGINAL_LENGTH=1400
     volumes:
-      - ./uploads:/app/uploads
+      - ./uploads:/uploads
     ports:
       - 8118:8118
