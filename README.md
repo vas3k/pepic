@@ -60,7 +60,7 @@ global:
 docker run -p 8118:8118 -v /host/dir/uploads:/app/uploads $(docker build -q .)
 ```
 
-If you prefer docker-compose, you can use it too. Check out the included [docker-compose.yml](docker-compose.yml). 
+If you prefer docker-compose, you can use it too. Check out the included [docker-compose.example.yml](docker-compose.example.yml). 
 You can easily transform it into your favourite k8s config or whatever is fashionable this summer. 
 
 > 👍 Don't forger to periodically backup the `/host/dir/uploads` directory just in case :)
