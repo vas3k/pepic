@@ -3,6 +3,6 @@ services:
   app:
     build: .
     volumes:
-      - ./static/uploads:/uploads
+      - ./uploads:/app/uploads
     ports:
       - 8118:8118

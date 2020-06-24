@@ -12,7 +12,7 @@ It's not meant to be used by anyone else, but if you're brave enough — give it
 
 ## 🔮 Building and playing with it locally
 
-1. Get the [Docker](https://www.docker.com/get-started)
+1. Get [Docker](https://www.docker.com/get-started)
 
 2. Clone the repo
 
@@ -28,10 +28,12 @@ docker build .
 docker run -p 8118:8118 -v ${PWD}/uploads:/app/uploads $(docker build -q .)
 ```
 
-4. Navigate to [http://localhost:8118](http://localhost:8118) and try uploading some stuff. 
-After you did it, check the data directory you mounted before. It should have some files in it. 
+4. Go to [http://localhost:8118](http://localhost:8118) and try uploading some stuff. 
+Check the data directory (`./uploads`) after that. It should have some files.
 
-5. Open [config/config.yml](config/config.yml) and read the settings. 
+5. Try to resize an image by adding a number of pixels to its URL. For example: `https://localhost:8118/file.jpg -> https://localhost:8118/500/file.jpg`
+
+6. Check out the [config/config.yml](config/config.yml) file. Some stuff is turned off by default.
 You can tweak them for yourself and rebuild the docker again (step 3) to apply them.
 
 ## 🚢 Production Usage
