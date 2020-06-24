@@ -3,10 +3,11 @@ services:
   app:
     build: .
     environment:
-      - BASE_URL = "https://i.vas3k.ru"
+      - BASE_URL=https://i.vas3k.ru/
       - STORAGE_DIR=/uploads
       - SECRET_CODE=wowsosecret
       - IMAGE_ORIGINAL_LENGTH=1400
+      - MAX_UPLOAD_SIZE=100M
     volumes:
       - ./uploads:/uploads
     ports:

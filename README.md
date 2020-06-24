@@ -43,7 +43,7 @@ You can tweak them for yourself and rebuild the docker again (step 3) to apply t
 
 Let's say, you want to host it on `https://media.mydomain.org`
 
- 1. Modify `config/config.yml`
+#### 1. Modify `config/config.yml` to your taste
 
 ```
 global:
@@ -54,7 +54,9 @@ global:
   max_upload_size: "500M"
 ```
 
- 2. Build and run production docker. Don't forget to mount upload volume to store files on host (or you can lose those files if container will be killed).
+#### 2. Build and run production docker
+
+Don't forget to mount upload volume to store files on host (or you can lose those files if container will be killed).
 
 ```
 docker run -p 8118:8118 -v /host/dir/uploads:/app/uploads $(docker build -q .)
@@ -65,7 +67,9 @@ You can easily transform it into your favourite k8s config or whatever is fashio
 
 > 👍 Don't forger to periodically backup the `/host/dir/uploads` directory just in case :)
 
- 3. Use nginx or any other server to proxy calls from your domain (media.mydomain.org) to pepic backend (0.0.0.0:8118)
+#### 3. Use nginx or your other favourite proxy
+
+Just proxy all calls from the domain (media.mydomain.org) to pepic backend (0.0.0.0:8118). It can handle static files too.
 
 ```
 server {

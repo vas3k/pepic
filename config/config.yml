@@ -1,7 +1,7 @@
 global:
   host: 0.0.0.0
   port: 8118
-  base_url: "http://0.0.0.0:8118/"
+  base_url: "http://0.0.0.0:8118/"  # last / is important!
   secret_code: "" # secret word to protect you from strangers (don't use your password here, it's stored as plain text)
   max_upload_size: "500M" # number + K, M, G, T or P
 
