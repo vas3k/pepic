@@ -83,19 +83,23 @@ func UploadBytes(c echo.Context) error {
 }
 
 func renderResults(results []UploadResult, c echo.Context) error {
+	accept := c.Request().Header.Get("Accept")
+
+	// on json upload - return structured results
+	if strings.HasPrefix(accept, "application/json") {
+		var urls []string
+		for _, result := range results {
+			urls = append(urls, result.Url)
+		}
+		return c.JSON(http.StatusCreated, map[string]interface{}{
+			"uploaded": urls,
+		})
+	}
+
+	// on simple html upload - redirect to meta page
 	var filenames []string
 	for _, result := range results {
 		filenames = append(filenames, result.Filename)
 	}
-
-	// json upload - return proper results
-	accept := c.Request().Header.Get("Accept")
-	if strings.HasPrefix(accept, "application/json") {
-		return c.JSON(http.StatusCreated, map[string]interface{}{
-			"uploaded": filenames,
-		})
-	}
-
-	// simple html upload - redirect to meta page
 	return c.Redirect(http.StatusFound, "/meta/" + strings.Join(filenames, ","))
 }
