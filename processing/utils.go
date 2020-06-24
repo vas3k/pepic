@@ -36,7 +36,7 @@ func splitFileNameNGrams(filename string, n int, stop int) string {
 	resultBuilder.Grow(len(base) + 5)
 	for i, r := range base {
 		resultBuilder.WriteRune(r)
-		if (i + 1) % n == 0 && i != len(base) {
+		if (i + 1) % n == 0 && i < len(base) - 1 {
 			resultBuilder.WriteRune('/')
 		}
 		if i >= stop {
