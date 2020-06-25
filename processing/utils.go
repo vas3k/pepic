@@ -59,3 +59,13 @@ func replaceExt(filename string, newExt string) string {
 	ext := path.Ext(filename)
 	return filename[:len(filename)-len(ext)] + newExt
 }
+
+func fitSize(origWidth int, origHeight int, length int) (int, int) {
+	if origWidth > origHeight {
+		return length, length / origWidth * origHeight
+	} else if origWidth < origHeight {
+		return length / origHeight * origWidth, length
+	} else {
+		return length, length
+	}
+}

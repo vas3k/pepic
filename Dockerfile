@@ -1,15 +1,17 @@
-FROM golang:latest AS builder
+FROM alpine:edge AS builder
 
+ENV GOOS=linux
+ENV CGO_CFLAGS_ALLOW="-Xpreprocessor"
+
+RUN apk add --no-cache go gcc g++ vips-dev
 COPY . /build
 WORKDIR /build
-
 RUN go get
-RUN CGO_ENABLED=0 go build -a -o /build/pepic .
+RUN go build -a -o /build/pepic -ldflags="-s -w -h" .
 
 FROM alpine:latest
 
-RUN apk --no-cache add ca-certificates ffmpeg
-
+RUN apk --no-cache add ca-certificates ffmpeg vips
 COPY --from=builder /build/pepic /app/pepic
 COPY config /app/config
 COPY templates /app/templates

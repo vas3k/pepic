@@ -4,17 +4,38 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/disintegration/imaging"
+	"github.com/h2non/bimg"
 	"github.com/vas3k/pepic/config"
 	"image"
 	"image/color"
 	"image/draw"
-	"image/png"
+	"image/jpeg"
+	_ "image/png"
 	"log"
+	"strings"
 )
 
-func isImage(mimeType string) bool {
-	return mimeType == "image/jpeg" || mimeType == "image/png" || mimeType == "image/gif"
+func isImage(file *ProcessedFile) bool {
+	return strings.HasPrefix(file.Mime, "image/")
+}
+
+func mimeTypeToImageType(mimeType string) (bimg.ImageType, error) {
+	mapping := map[string]bimg.ImageType{
+		"image/jpeg": bimg.JPEG,
+		"image/pjpeg": bimg.JPEG,
+		"image/webp": bimg.WEBP,
+		"image/png": bimg.PNG,
+		"image/tiff": bimg.TIFF,
+		"image/gif": bimg.GIF,
+		"image/svg": bimg.SVG,
+		"image/heic": bimg.HEIF,
+		"image/heif": bimg.HEIF,
+	}
+	if imageType, ok := mapping[mimeType]; ok {
+		return imageType, nil
+	} else {
+		return bimg.UNKNOWN, errors.New(fmt.Sprintf("'%s' is not supported", mimeType))
+	}
 }
 
 func resizeImage(file *ProcessedFile, maxLength int) error {
@@ -23,31 +44,26 @@ func resizeImage(file *ProcessedFile, maxLength int) error {
 		return errors.New("file data is empty, try reading it first")
 	}
 
-	image, err := imaging.Decode(bytes.NewReader(file.Data), imaging.AutoOrientation(true))
+	img := bimg.NewImage(file.Data)
+	origSize, err := img.Size()
 	if err != nil {
 		return err
 	}
 
-	imageFormat, err := imaging.FormatFromFilename(file.Filename)
+	width, height := fitSize(origSize.Width, origSize.Height, maxLength)
+	resizedImg, err := img.Process(bimg.Options{
+		Width:  width,
+		Height: height,
+		Embed:  true,
+		StripMetadata: true,
+		Quality: config.App.Images.JPEGQuality,
+		Compression: config.App.Images.PNGCompression,
+	})
 	if err != nil {
 		return err
 	}
 
-	resizedImage := imaging.Fit(image, maxLength, maxLength, imaging.Lanczos)
-
-	bytesBuffer := new(bytes.Buffer)
-	err = imaging.Encode(
-		bytesBuffer,
-		resizedImage,
-		imageFormat,
-		imaging.JPEGQuality(config.App.Images.JPEGQuality),
-		imaging.PNGCompressionLevel(png.CompressionLevel(config.App.Images.PNGCompression)),
-	)
-	if err != nil {
-		return err
-	}
-
-	file.Data = bytesBuffer.Bytes()
+	file.Data = resizedImg
 
 	return nil
 }
@@ -58,40 +74,27 @@ func convertImage(file *ProcessedFile, newMimeType string) error {
 		return errors.New("file data is empty, try reading it first")
 	}
 
-	if !isImage(newMimeType) {
-		return errors.New(fmt.Sprintf("'%s' is not an image mime type", newMimeType))
-	}
-
-	image, err := imaging.Decode(bytes.NewReader(file.Data))
+	newImgType, err := mimeTypeToImageType(newMimeType)
 	if err != nil {
 		return err
 	}
 
-	newExt, _ := extensionByMimeType(newMimeType)
-	imageFormat, err := imaging.FormatFromExtension(newExt)
-	if err != nil {
-		return err
-	}
+	img := bimg.NewImage(file.Data)
 
 	// fix PNG -> JPG transparency if needed
-	if file.Mime == "image/png" && newMimeType == "image/jpeg" {
-		image = fixPNGTransparency(image)
+	if bimg.DetermineImageType(file.Data) == bimg.PNG && newImgType == bimg.JPEG {
+		img = fixPNGTransparency(img)
 	}
 
-	// encode the result back to bytes
-	bytesBuffer := new(bytes.Buffer)
-	err = imaging.Encode(
-		bytesBuffer,
-		image,
-		imageFormat,
-		imaging.JPEGQuality(config.App.Images.JPEGQuality),
-		imaging.PNGCompressionLevel(png.CompressionLevel(config.App.Images.PNGCompression)),
-	)
-	if err != nil {
-		return err
-	}
+	convertedImg, err := img.Process(bimg.Options{
+		Type: newImgType,
+		StripMetadata: true,
+		Quality: config.App.Images.JPEGQuality,
+		Compression: config.App.Images.PNGCompression,
+	})
 
-	file.Data = bytesBuffer.Bytes()
+	newExt, _ := extensionByMimeType(newMimeType)
+	file.Data = convertedImg
 	file.Mime = newMimeType
 	file.Filename = replaceExt(file.Filename, newExt)
 	if file.Path != "" {
@@ -101,9 +104,23 @@ func convertImage(file *ProcessedFile, newMimeType string) error {
 	return nil
 }
 
-func fixPNGTransparency(img image.Image) image.Image {
-	newImg := image.NewRGBA(img.Bounds())
+func fixPNGTransparency(img *bimg.Image) *bimg.Image {
+	// convert to go image because bimg has no drawing features
+	origImg, _, err := image.Decode(bytes.NewReader(img.Image()))
+	if err != nil {
+		return img
+	}
+
+	// draw white square and paste image on top of it
+	newImg := image.NewRGBA(origImg.Bounds())
 	draw.Draw(newImg, newImg.Bounds(), &image.Uniform{color.White}, image.Point{}, draw.Src)
-	draw.Draw(newImg, newImg.Bounds(), img, img.Bounds().Min, draw.Over)
-	return image.Image(newImg)
+	draw.Draw(newImg, newImg.Bounds(), origImg, origImg.Bounds().Min, draw.Over)
+
+	// convert back to bytes
+	buf := new(bytes.Buffer)
+	err = jpeg.Encode(buf, newImg, nil)
+	if err != nil {
+		return img
+	}
+	return bimg.NewImage(buf.Bytes())
 }

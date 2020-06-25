@@ -17,11 +17,11 @@ func (p *ProcessedFile) Url() string {
 }
 
 func (p *ProcessedFile) IsImage() bool {
-	return isImage(p.Mime)
+	return isImage(p)
 }
 
 func (p *ProcessedFile) IsVideo() bool {
-	return isVideo(p.Mime)
+	return isVideo(p)
 }
 
 func (p *ProcessedFile) Size() int64 {

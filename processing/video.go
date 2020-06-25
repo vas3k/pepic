@@ -13,8 +13,8 @@ import (
 	"strings"
 )
 
-func isVideo(mimeType string) bool {
-	return strings.HasPrefix(mimeType, "video/")
+func isVideo(file *ProcessedFile) bool {
+	return strings.HasPrefix(file.Mime, "video/")
 }
 
 func transcodeVideo(file *ProcessedFile, maxLength int) error {
@@ -77,7 +77,7 @@ func convertVideo(file *ProcessedFile, newMimeType string) error {
 		return errors.New("file data is empty, try reading it first")
 	}
 
-	if !isVideo(newMimeType) {
+	if !isVideo(file) {
 		return errors.New(fmt.Sprintf("'%s' is not supported video type", newMimeType))
 	}
 

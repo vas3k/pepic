@@ -4,11 +4,14 @@
   <h1>PEPIC</h1>
 </div>
 
-PEPIC is a small proxy for uploading and serving pictures and videos. 
+PEPIC is a small proxy for uploading, serving and converting pictures and videos. 
 I use it for my [pet-projects](https://github.com/vas3k/vas3k.club) and on [my blog](https://vas3k.com). 
-PEPIC can convert, resize and optimize media files in-flight to save you monies and bandwidth. And it's dead simple.
+It can convert, resize and optimize media files in-flight to save you monies and bandwidth. 
+Internally it uses [ffmpeg](https://ffmpeg.org/download.html) for videos and [vips](https://libvips.github.io/libvips/install.html) for images,
+which means it's quite fast and supports **JPG, PNG, GIF, WEBP, SVG, HEIF, TIFF** and wide range of video formats.  
 
-It's not meant to be used by anyone else, but if you're brave enough — give it a try. Maybe we'll become friends.
+
+PEPIC is not meant to be used by anyone else except me, but if you're brave enough — give it a try. Maybe we'll become friends.
 
 ## 🔮 Building and running locally
 
@@ -94,9 +97,11 @@ Open an [Issue](https://github.com/vas3k/vas3k.club/issues) if you want to repor
 
 ## ✅ TODO
 
-- [ ] Convert/quality API flag
-- [ ] Proper Accept header check + JSON upload and API
 - [ ] Tests :D
+- [ ] Upload by URL
+- [ ] Crop, rotate and other useful transformations (face blur? pre-loader generator?)
+- [ ] Live conversion by changing file's extension 
+- [ ] Set format and quality during the upload (using flags?)
 
 ## 🤔 Alternatives
 
