@@ -5,7 +5,6 @@ import (
 	"github.com/vas3k/pepic/config"
 	"github.com/vas3k/pepic/processing"
 	"github.com/vas3k/pepic/storage"
-	"log"
 	"net/http"
 	"strconv"
 )
