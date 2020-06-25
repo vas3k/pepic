@@ -62,9 +62,9 @@ func replaceExt(filename string, newExt string) string {
 
 func fitSize(origWidth int, origHeight int, length int) (int, int) {
 	if origWidth > origHeight {
-		return length, length / origWidth * origHeight
+		return length, (origHeight * length) / origWidth
 	} else if origWidth < origHeight {
-		return length / origHeight * origWidth, length
+		return (origWidth * length) / origHeight, length
 	} else {
 		return length, length
 	}
