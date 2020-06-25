@@ -3,6 +3,7 @@ package processing
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"github.com/vas3k/pepic/config"
 	"github.com/vas3k/pepic/storage"
 	"log"
 	"path"
@@ -23,7 +24,7 @@ func calculateHashName(file *ProcessedFile) error {
 }
 
 func canonizeFileName(filename string) string {
-	return splitFileNameNGrams(filename, 3, 10)
+	return splitFileNameNGrams(filename, config.App.Global.FileTreeSplitChars, 10)
 }
 
 func storeFile(file *ProcessedFile, directories ...string) error {

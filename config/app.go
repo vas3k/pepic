@@ -7,11 +7,12 @@ import (
 
 type Config struct {
 	Global struct {
-		Host          string `yaml:"host" env:"HOST" env-default:"0.0.0.0"`
-		Port          int    `yaml:"port" env:"PORT" env-default:"8118"`
-		BaseUrl       string `yaml:"base_url" env:"BASE_URL" env-default:"http://0.0.0.0:8118/"`
-		SecretCode    string `yaml:"secret_code" env:"SECRET_CODE" env-default:""`
-		MaxUploadSize string `yaml:"max_upload_size" env:"MAX_UPLOAD_SIZE" env-default:""`
+		Host               string `yaml:"host" env:"HOST" env-default:"0.0.0.0"`
+		Port               int    `yaml:"port" env:"PORT" env-default:"8118"`
+		BaseUrl            string `yaml:"base_url" env:"BASE_URL" env-default:"http://0.0.0.0:8118/"`
+		SecretCode         string `yaml:"secret_code" env:"SECRET_CODE" env-default:""`
+		MaxUploadSize      string `yaml:"max_upload_size" env:"MAX_UPLOAD_SIZE" env-default:""`
+		FileTreeSplitChars int    `yaml:"file_tree_split_chars" env:"FILE_TREE_SPLIT_CHARS" env-default:"3"`
 	} `yaml:"global"`
 
 	Storage struct {
@@ -49,7 +50,7 @@ type Config struct {
 	} `yaml:"videos"`
 
 	Meta struct {
-		Blocks  []struct {
+		Blocks []struct {
 			Title    string `yaml:"title"`
 			Template string `yaml:"template"`
 		} `yaml:"blocks" env:"META_BLOCKS"`
