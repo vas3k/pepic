@@ -34,13 +34,13 @@ func storeFile(file *ProcessedFile, directories ...string) error {
 		canonizeFileName(file.Filename),
 	)
 
-	savedPath, err := storage.Main.PutObject(canonicalPath, file.Data)
+	_, err := storage.Main.PutObject(canonicalPath, file.Data)
 	if err != nil {
 		log.Fatalf("Error writing file '%s' to storage: %s", canonicalPath, err)
 		return err
 	}
 
-	file.Path = savedPath
+	file.Path = canonicalPath
 
 	return nil
 }

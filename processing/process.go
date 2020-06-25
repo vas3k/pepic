@@ -116,7 +116,7 @@ func ResizeFile(filename string, length int) (*ProcessedFile, error) {
 				return file, err
 			}
 
-			err = storeFile(file, "orig")
+			err = storeFile(file, resizePath)
 			if err != nil {
 				return file, err
 			}
@@ -136,7 +136,7 @@ func ResizeFile(filename string, length int) (*ProcessedFile, error) {
 				return file, err
 			}
 
-			err = storeFile(file, "orig")
+			err = storeFile(file, resizePath)
 			if err != nil {
 				return file, err
 			}
