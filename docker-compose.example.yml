@@ -2,7 +2,7 @@ version: "3.8"
 services:
   app:
     build: .
-    environment:
+    environment: # check out config/app.go for more env variables
       - BASE_URL=https://i.vas3k.ru/
       - STORAGE_DIR=/uploads
       - SECRET_CODE=wowsosecret
@@ -13,3 +13,4 @@ services:
     ports:
       - 8118:8118
     user: "1000" # set your real uid (by default only root can read the uploaded files)
+    restart: unless-stopped

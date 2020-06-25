@@ -1,6 +1,6 @@
 <div align="center">
   <br>
-  <img src="static/images/logo.png" width="300" alt="">
+  <img src="static/images/logo.png" width="256" alt="">
   <h1>PEPIC</h1>
 </div>
 
@@ -10,7 +10,7 @@ PEPIC can convert, resize and optimize media files in-flight to save you monies 
 
 It's not meant to be used by anyone else, but if you're brave enough — give it a try. Maybe we'll become friends.
 
-## 🔮 Building and playing with it locally
+## 🔮 Building and running locally
 
 1. Get [Docker](https://www.docker.com/get-started)
 
@@ -35,6 +35,8 @@ Check the data directory (`./uploads`) after that. It should have some files.
 
 6. Check out the [config/config.yml](config/config.yml) file. Some stuff is turned off by default.
 You can tweak them for yourself and rebuild the docker again (step 3) to apply them.
+
+![](static/images/screenshot1.png)
 
 ## 🚢 Production Usage
 
