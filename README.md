@@ -98,6 +98,14 @@ Open an [Issue](https://github.com/vas3k/vas3k.club/issues) if you want to repor
 - [ ] Proper Accept header check + JSON upload and API
 - [ ] Tests :D
 
+## 🤔 Alternatives
+
+After reading all this, you probably realized how bad it is and looking for other alternatives. Here's my recommendations:
+
+- [imgproxy](https://github.com/imgproxy/imgproxy)
+- [imaginary](https://github.com/h2non/imaginary)
+- [flyimg](https://github.com/flyimg/flyimg)
+
 ## 👩‍💼 License 
 
 It's [MIT](LICENSE).
