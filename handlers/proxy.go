@@ -13,8 +13,6 @@ import (
 const MinLength = 200
 
 func GetOriginalFile(c echo.Context) error {
-	log.Print("Getting original file")
-
 	file, err := processing.GetFile("orig", c.Param("name"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "File not found")
@@ -23,8 +21,6 @@ func GetOriginalFile(c echo.Context) error {
 }
 
 func GetResizedFile(c echo.Context) error {
-	log.Print("Getting resized image")
-
 	length, err := strconv.Atoi(c.Param("length"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "Bad 'length' parameter. Need an integer!")
