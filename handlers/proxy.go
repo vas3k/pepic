@@ -20,7 +20,12 @@ func GetOriginalFile(c echo.Context) error {
 }
 
 func GetResizedFile(c echo.Context) error {
-	length, err := strconv.Atoi(c.Param("length"))
+	lengthString := c.Param("length")
+	if lengthString == "full" {
+		return GetOriginalFile(c)
+	}
+
+	length, err := strconv.Atoi(lengthString)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "Bad 'length' parameter. Need an integer!")
 	}
