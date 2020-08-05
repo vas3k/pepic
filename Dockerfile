@@ -11,7 +11,7 @@ RUN go build -a -o /build/pepic -ldflags="-s -w -h" .
 
 FROM alpine:latest
 
-RUN apk --no-cache add ca-certificates ffmpeg vips
+RUN apk --no-cache add ca-certificates mailcap ffmpeg vips
 COPY --from=builder /build/pepic /app/pepic
 COPY config /app/config
 COPY templates /app/templates
