@@ -4,18 +4,18 @@
   <h1>PEPIC</h1>
 </div>
 
-PEPIC is a small proxy that helps to upload, store, convert and serve pictures or videos on your server.
+Pepic is a small app that helps me to upload, store, convert and serve pictures or videos on your server.
 
-I use it mostly for my [pet-projects](https://github.com/vas3k/vas3k.club) and on [my blog](https://vas3k.com). 
-It can convert, resize and optimize media files in-flight to save you monies and bandwidth. 
+I use it as media proxy for my [pet-projects](https://github.com/vas3k/vas3k.club) and on [my blog](https://vas3k.com). 
+Pepic can convert, resize and optimize media files in-flight to save you monies and bandwidth. 
 Internally it uses [ffmpeg](https://ffmpeg.org/download.html) for videos and [vips](https://libvips.github.io/libvips/install.html) for images,
 which means it's quite fast and supports **JPG, PNG, GIF, WEBP, SVG, HEIF, TIFF** and wide range of video formats.  
 
-PEPIC is not meant to be used by anyone else except me, but if you're brave enough — give it a try. Maybe we'll become friends.
+It's not meant to be used by anyone else except me. Use it only if you're brave. Scroll down this README for better alternatives.
 
-## 🤖 How to run locally
+## 🤖 How to run it locally
 
-This will run a local server on [http://localhost:8118](http://localhost:8118). Useful for development.
+This command starts a local server on [localhost:8118](http://localhost:8118). Useful for development.
 
 ```
 go run main.go serve --config ./etc/pepic/config.yml
@@ -23,7 +23,7 @@ go run main.go serve --config ./etc/pepic/config.yml
 
 > ⚠️ If you're getting `invalid flag in pkg-config` error, run `export CGO_CFLAGS_ALLOW="-Xpreprocessor"` in advance
 
-## 🐳 How to run in Docker
+## 🐳 Running in Docker
 
 1. Get [Docker](https://www.docker.com/get-started)
 
@@ -41,8 +41,8 @@ docker build .
 docker run -p 8118:8118 -v ${PWD}/uploads:/app/uploads $(docker build -q .)
 ```
 
-4. Go to [http://localhost:8118](http://localhost:8118) and try uploading some stuff. 
-Check the data directory (`./uploads`) after that. It should have some files.
+4. Go to [http://localhost:8118](http://localhost:8118) and try uploading something. 
+You should see uploaded images or videos in the data directory (`./uploads`) after that.
 
 5. Try to resize an image by adding a number of pixels to its URL. For example: `https://localhost:8118/file.jpg -> https://localhost:8118/500/file.jpg`
 
@@ -71,7 +71,7 @@ global:
 
 #### 2. Build and run production docker
 
-Don't forget to mount upload volume to store files on host (or you can lose those files if container will be killed).
+Don't forget to mount upload volume to store files on host (or you can lose those files when container will be killed).
 
 ```
 docker run -p 8118:8118 -v /host/dir/uploads:/app/uploads $(docker build -q .)
