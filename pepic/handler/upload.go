@@ -108,16 +108,7 @@ func (h *PepicHandler) uploadBytes(filename string, bytes []byte) (*entity.Proce
 				}
 			}
 		}
-
-		err = h.Storage.StoreFile(file, "orig")
-		if err != nil {
-			return file, err
-		}
-
-		return file, nil
-	}
-
-	if file.IsVideo() {
+	} else if file.IsVideo() {
 		log.Printf("Processing video: %s", file.Mime)
 		err := utils.CalculateHashName(file)
 		if err != nil {
@@ -137,16 +128,16 @@ func (h *PepicHandler) uploadBytes(filename string, bytes []byte) (*entity.Proce
 				}
 			}
 		}
-
-		err = h.Storage.StoreFile(file, "orig")
-		if err != nil {
-			return file, err
-		}
-
-		return file, nil
+	} else {
+		return nil, errors.New(fmt.Sprintf("unsupported file type: %s", file.Mime))
 	}
 
-	return nil, errors.New(fmt.Sprintf("unsupported file type: %s", file.Mime))
+	err := h.Storage.StoreFile(file, "orig")
+	if err != nil {
+		return file, err
+	}
+
+	return file, nil
 }
 
 func multipartToBytes(multipartFile *multipart.FileHeader) ([]byte, error) {
