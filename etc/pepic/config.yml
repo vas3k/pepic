@@ -7,7 +7,7 @@ global:
   file_tree_split_chars: 3 # abcde.jpg -> ab/cd/e.jpg (never change this after release!)
 
 storage:
-  type: fs
+  type: provider
   dir: uploads/
 
 images:

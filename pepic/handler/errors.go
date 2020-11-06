@@ -1,4 +1,4 @@
-package handlers
+package handler
 
 import (
 	"fmt"
@@ -8,11 +8,11 @@ import (
 )
 
 type JSONError struct {
-	Code    int		`json:"code"`
-	Message string  `json:"message"`
+	Code    int    `json:"code"`
+	Message string `json:"message"`
 }
 
-func ErrorHandler(err error, c echo.Context) {
+func (h *PepicHandler) ErrorHandler(err error, c echo.Context) {
 	code := http.StatusInternalServerError
 	message := err.Error()
 	if httpError, ok := err.(*echo.HTTPError); ok {

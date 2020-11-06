@@ -2,7 +2,7 @@ version: "3.8"
 services:
   app:
     build: .
-    environment: # check out config/app.go for more env variables
+    environment: # check out pepic/config/app.go for more env variables
       - BASE_URL=https://i.vas3k.ru/
       - STORAGE_DIR=/uploads
       - SECRET_CODE=wowsosecret

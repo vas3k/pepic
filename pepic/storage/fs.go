@@ -1,4 +1,4 @@
-package fs
+package storage
 
 import (
 	"github.com/labstack/echo/v4"
@@ -7,17 +7,17 @@ import (
 	"path"
 )
 
-type FileSystemStorage struct {
+type FileSystemBackend struct {
 	dir string
 }
 
-func New(dir string) *FileSystemStorage {
-	fs := new(FileSystemStorage)
+func NewFileSystemBackend(dir string) *FileSystemBackend {
+	fs := new(FileSystemBackend)
 	fs.dir = dir
 	return fs
 }
 
-func (fs *FileSystemStorage) PutObject(objectName string, data []byte) (string, error) {
+func (fs *FileSystemBackend) PutObject(objectName string, data []byte) (string, error) {
 	fullPath := path.Join(fs.dir, objectName)
 
 	os.MkdirAll(path.Dir(fullPath), os.ModePerm)
@@ -35,7 +35,7 @@ func (fs *FileSystemStorage) PutObject(objectName string, data []byte) (string, 
 	return fullPath, nil
 }
 
-func (fs *FileSystemStorage) GetObject(objectName string) ([]byte, error) {
+func (fs *FileSystemBackend) GetObject(objectName string) ([]byte, error) {
 	fullPath := path.Join(fs.dir, objectName)
 
 	data, err := ioutil.ReadFile(fullPath)
@@ -46,7 +46,7 @@ func (fs *FileSystemStorage) GetObject(objectName string) ([]byte, error) {
 	return data, nil
 }
 
-func (fs *FileSystemStorage) IsExists(objectName string) bool {
+func (fs *FileSystemBackend) IsExists(objectName string) bool {
 	fullPath := path.Join(fs.dir, objectName)
 
 	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
@@ -56,7 +56,7 @@ func (fs *FileSystemStorage) IsExists(objectName string) bool {
 	return true
 }
 
-func (fs *FileSystemStorage) Size(objectName string) int64 {
+func (fs *FileSystemBackend) Size(objectName string) int64 {
 	file, err := os.Open(path.Join(fs.dir, objectName))
 	defer file.Close()
 	if err != nil {
@@ -70,6 +70,6 @@ func (fs *FileSystemStorage) Size(objectName string) int64 {
 	return info.Size()
 }
 
-func (fs *FileSystemStorage) Proxy(c echo.Context, objectName string) error {
+func (fs *FileSystemBackend) Proxy(c echo.Context, objectName string) error {
 	return c.File(path.Join(fs.dir, objectName))
 }

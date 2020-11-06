@@ -3,23 +3,32 @@ package processing
 import (
 	"errors"
 	"fmt"
-	"github.com/vas3k/pepic/config"
+	"github.com/vas3k/pepic/pepic/config"
+	"github.com/vas3k/pepic/pepic/entity"
+	"github.com/vas3k/pepic/pepic/utils"
 	"github.com/xfrr/goffmpeg/transcoder"
 	"io/ioutil"
 	"log"
 	"mime"
 	"os"
 	"path"
-	"strings"
 )
 
-func isVideo(file *ProcessedFile) bool {
-	return strings.HasPrefix(file.Mime, "video/")
+type VideoBackend interface {
+	Transcode(file *entity.ProcessingFile, maxLength int) error
+	Convert(file *entity.ProcessingFile, newMimeType string) error
 }
 
-func transcodeVideo(file *ProcessedFile, maxLength int) error {
+type videoBackend struct {
+}
+
+func NewVideoBackend() VideoBackend {
+	return &videoBackend{}
+}
+
+func (v *videoBackend) Transcode(file *entity.ProcessingFile, maxLength int) error {
 	log.Printf("Transcoding video '%s' to %d px", file.Filename, maxLength)
-	if file.Data == nil {
+	if file.Bytes == nil {
 		return errors.New("file data is empty, try reading it first")
 	}
 
@@ -32,7 +41,7 @@ func transcodeVideo(file *ProcessedFile, maxLength int) error {
 	defer dst.Close()
 	defer os.Remove(tempOrigFile)
 
-	_, err = dst.Write(file.Data)
+	_, err = dst.Write(file.Bytes)
 	if err != nil {
 		return err
 	}
@@ -47,7 +56,7 @@ func transcodeVideo(file *ProcessedFile, maxLength int) error {
 	defer os.Remove(tempTransFile)
 
 	// create and configure video transcoder
-	trans, err := initTranscoder(tempOrigFile, tempTransFile)
+	trans, err := v.initTranscoder(tempOrigFile, tempTransFile)
 	if err != nil {
 		return err
 	}
@@ -56,14 +65,14 @@ func transcodeVideo(file *ProcessedFile, maxLength int) error {
 	trans.MediaFile().SetVideoFilter(fmt.Sprintf("scale=trunc(oh*a/2)*2:%d", maxLength))
 
 	// run transcoding and monitor the process
-	done := runTranscoder(trans)
+	done := v.runTranscoder(trans)
 	err = <-done
 	if err != nil {
 		return err
 	}
 
 	// load transcoded video back to memory and remove temp files (deferred)
-	file.Data, err = ioutil.ReadFile(tempTransFile)
+	file.Bytes, err = ioutil.ReadFile(tempTransFile)
 	if err != nil {
 		return err
 	}
@@ -71,13 +80,13 @@ func transcodeVideo(file *ProcessedFile, maxLength int) error {
 	return nil
 }
 
-func convertVideo(file *ProcessedFile, newMimeType string) error {
+func (v *videoBackend) Convert(file *entity.ProcessingFile, newMimeType string) error {
 	log.Printf("Converting video '%s' to %s", file.Filename, newMimeType)
-	if file.Data == nil {
+	if file.Bytes == nil {
 		return errors.New("file data is empty, try reading it first")
 	}
 
-	if !isVideo(file) {
+	if !file.IsVideo() {
 		return errors.New(fmt.Sprintf("'%s' is not supported video type", newMimeType))
 	}
 
@@ -90,7 +99,7 @@ func convertVideo(file *ProcessedFile, newMimeType string) error {
 	defer dst.Close()
 	defer os.Remove(tempOrigFile)
 
-	_, err = dst.Write(file.Data)
+	_, err = dst.Write(file.Bytes)
 	if err != nil {
 		return err
 	}
@@ -98,7 +107,7 @@ func convertVideo(file *ProcessedFile, newMimeType string) error {
 	// create temp file output
 	ext, _ := mime.ExtensionsByType(newMimeType)
 	newExt := ext[0]
-	convFilename := replaceExt(file.Filename, newExt)
+	convFilename := utils.ReplaceExt(file.Filename, newExt)
 	tempTransFile := path.Join(config.App.Videos.FFmpeg.TempDir, fmt.Sprintf("conv_%s", convFilename))
 	dst, err = os.Create(tempTransFile)
 	if err != nil {
@@ -108,20 +117,20 @@ func convertVideo(file *ProcessedFile, newMimeType string) error {
 	defer os.Remove(tempTransFile)
 
 	// create and configure video transcoder
-	trans, err := initTranscoder(tempOrigFile, tempTransFile)
+	trans, err := v.initTranscoder(tempOrigFile, tempTransFile)
 	if err != nil {
 		return err
 	}
 
 	// run transcoding and monitor the process
-	done := runTranscoder(trans)
+	done := v.runTranscoder(trans)
 	err = <-done
 	if err != nil {
 		return err
 	}
 
 	// load transcoded video back to memory and remove temp files (deferred)
-	file.Data, err = ioutil.ReadFile(tempTransFile)
+	file.Bytes, err = ioutil.ReadFile(tempTransFile)
 	if err != nil {
 		return err
 	}
@@ -129,13 +138,13 @@ func convertVideo(file *ProcessedFile, newMimeType string) error {
 	file.Mime = newMimeType
 	file.Filename = convFilename
 	if file.Path != "" {
-		file.Path = replaceExt(file.Path, newExt)
+		file.Path = utils.ReplaceExt(file.Path, newExt)
 	}
 
 	return nil
 }
 
-func initTranscoder(inputPath string, outputPath string) (*transcoder.Transcoder, error) {
+func (v *videoBackend) initTranscoder(inputPath string, outputPath string) (*transcoder.Transcoder, error) {
 	trans := new(transcoder.Transcoder)
 	err := trans.Initialize(inputPath, outputPath)
 	if err != nil {
@@ -156,7 +165,7 @@ func initTranscoder(inputPath string, outputPath string) (*transcoder.Transcoder
 	return trans, nil
 }
 
-func runTranscoder(trans *transcoder.Transcoder) <-chan error {
+func (v *videoBackend) runTranscoder(trans *transcoder.Transcoder) <-chan error {
 	done := trans.Run(true)
 	progress := trans.Output()
 	for msg := range progress {

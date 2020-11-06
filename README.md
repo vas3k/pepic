@@ -4,16 +4,26 @@
   <h1>PEPIC</h1>
 </div>
 
-PEPIC is a small proxy for uploading, serving and converting pictures and videos. 
-I use it for my [pet-projects](https://github.com/vas3k/vas3k.club) and on [my blog](https://vas3k.com). 
+PEPIC is a small proxy that helps to upload, store, convert and serve pictures or videos on your server.
+
+I use it mostly for my [pet-projects](https://github.com/vas3k/vas3k.club) and on [my blog](https://vas3k.com). 
 It can convert, resize and optimize media files in-flight to save you monies and bandwidth. 
 Internally it uses [ffmpeg](https://ffmpeg.org/download.html) for videos and [vips](https://libvips.github.io/libvips/install.html) for images,
 which means it's quite fast and supports **JPG, PNG, GIF, WEBP, SVG, HEIF, TIFF** and wide range of video formats.  
 
-
 PEPIC is not meant to be used by anyone else except me, but if you're brave enough — give it a try. Maybe we'll become friends.
 
-## 🔮 Building and running locally
+## 🤖 How to run locally
+
+This will run a local server on [http://localhost:8118](http://localhost:8118). Useful for development.
+
+```
+go run main.go serve --config ./etc/pepic/config.yml
+```
+
+> ⚠️ If you're getting `invalid flag in pkg-config` error, run `export CGO_CFLAGS_ALLOW="-Xpreprocessor"` in advance
+
+## 🐳 How to run in Docker
 
 1. Get [Docker](https://www.docker.com/get-started)
 
@@ -36,14 +46,14 @@ Check the data directory (`./uploads`) after that. It should have some files.
 
 5. Try to resize an image by adding a number of pixels to its URL. For example: `https://localhost:8118/file.jpg -> https://localhost:8118/500/file.jpg`
 
-6. Check out the [config/config.yml](config/config.yml) file. Some stuff is turned off by default.
+6. Check out the [etc/pepic/config.yml](etc/pepic/config.yml) file. Some stuff is turned off by default.
 You can tweak them for yourself and rebuild the docker again (step 3) to apply them.
 
 ![](static/images/screenshot1.png)
 
 ## 🚢 Production Usage
 
-> ⚠️ If you plan to host anything bigger than a blog, put it behind caching CDN. 
+> ⚠️ If you plan to host anything bigger than a blog, always put it behind CDN. 
 > CloudFlare offers a free one if you don't hate big corporations :D
 
 Let's say, you want to host it on `https://media.mydomain.org`
@@ -101,7 +111,7 @@ Open an [Issue](https://github.com/vas3k/vas3k.club/issues) if you want to repor
 - [ ] Upload by URL
 - [ ] Crop, rotate and other useful transformations (face blur? pre-loader generator?)
 - [ ] Live conversion by changing file's extension 
-- [ ] Set format and quality during the upload (using flags?)
+- [ ] Set format and quality during the upload (using GET/POST params?)
 
 ## 🤔 Alternatives
 

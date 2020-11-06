@@ -1,10 +1,5 @@
 package config
 
-import (
-	"github.com/ilyakaznacheev/cleanenv"
-	"log"
-)
-
 type Config struct {
 	Global struct {
 		Host               string `yaml:"host" env:"HOST" env-default:"0.0.0.0"`
@@ -16,7 +11,7 @@ type Config struct {
 	} `yaml:"global"`
 
 	Storage struct {
-		Type string `yaml:"type" env:"STORAGE_TYPE" env-default:"fs"`
+		Type string `yaml:"type" env:"STORAGE_TYPE" env-default:"provider"`
 		Dir  string `yaml:"dir" env:"STORAGE_DIR" env-default:"uploads/"`
 	} `yaml:"storage"`
 
@@ -58,10 +53,3 @@ type Config struct {
 }
 
 var App Config
-
-func init() {
-	err := cleanenv.ReadConfig("config/config.yml", &App)
-	if err != nil {
-		log.Fatalf("config error: %s", err)
-	}
-}
