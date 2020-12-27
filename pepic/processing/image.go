@@ -17,6 +17,7 @@ import (
 )
 
 type ImageBackend interface {
+	AutoRotate(file *entity.ProcessingFile) error
 	Resize(file *entity.ProcessingFile, maxLength int) error
 	Convert(file *entity.ProcessingFile, newMimeType string) error
 }
@@ -26,6 +27,23 @@ type imageBackend struct {
 
 func NewImageBackend() ImageBackend {
 	return &imageBackend{}
+}
+
+func (i *imageBackend) AutoRotate(file *entity.ProcessingFile) error {
+	log.Printf("Auto-rotate image '%s'", file.Filename)
+	if file.Bytes == nil {
+		return errors.New("file data is empty, try reading it first")
+	}
+
+	img := bimg.NewImage(file.Bytes)
+	rotatedImg, err := img.AutoRotate()
+	if err != nil {
+		return err
+	}
+
+	file.Bytes = rotatedImg
+
+	return nil
 }
 
 func (i *imageBackend) Resize(file *entity.ProcessingFile, maxLength int) error {
@@ -41,6 +59,7 @@ func (i *imageBackend) Resize(file *entity.ProcessingFile, maxLength int) error 
 	}
 
 	width, height := utils.FitSize(origSize.Width, origSize.Height, maxLength)
+	log.Printf("Orig width '%d' height %d px", origSize.Width, origSize.Height)
 	resizedImg, err := img.Process(bimg.Options{
 		Width:         width,
 		Height:        height,

@@ -96,6 +96,11 @@ func (h *PepicHandler) uploadBytes(filename string, bytes []byte) (*entity.Proce
 		}
 
 		if !config.App.Images.StoreOriginals {
+			err = h.Processing.Image.AutoRotate(file)
+			if err != nil {
+				return file, err
+			}
+
 			err := h.Processing.Image.Resize(file, config.App.Images.OriginalLength)
 			if err != nil {
 				return file, err
