@@ -20,15 +20,19 @@ func NewFileSystemBackend(dir string) *FileSystemBackend {
 func (fs *FileSystemBackend) PutObject(objectName string, data []byte) (string, error) {
 	fullPath := path.Join(fs.dir, objectName)
 
-	os.MkdirAll(path.Dir(fullPath), os.ModePerm)
+	if err := os.MkdirAll(path.Dir(fullPath), os.ModePerm); err != nil {
+		return "", err
+	}
+
 	dst, err := os.Create(fullPath)
+
 	if err != nil {
 		return "", err
 	}
+
 	defer dst.Close()
 
-	_, err = dst.Write(data)
-	if err != nil {
+	if _, err = dst.Write(data); err != nil {
 		return "", err
 	}
 
