@@ -4,16 +4,17 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/h2non/bimg"
-	"github.com/vas3k/pepic/pepic/config"
-	"github.com/vas3k/pepic/pepic/entity"
-	"github.com/vas3k/pepic/pepic/utils"
 	"image"
 	"image/color"
 	"image/draw"
 	"image/jpeg"
 	_ "image/png"
 	"log"
+
+	"github.com/h2non/bimg"
+	"github.com/vas3k/pepic/pepic/config"
+	"github.com/vas3k/pepic/pepic/entity"
+	"github.com/vas3k/pepic/pepic/utils"
 )
 
 type ImageBackend interface {
@@ -36,7 +37,23 @@ func (i *imageBackend) AutoRotate(file *entity.ProcessingFile) error {
 	}
 
 	img := bimg.NewImage(file.Bytes)
-	rotatedImg, err := img.AutoRotate()
+	metadata, err := img.Metadata()
+	if err != nil {
+		return err
+	}
+	orientation := metadata.EXIF.Orientation
+
+	var rotatedImg []byte
+	switch orientation {
+	case 3:
+		rotatedImg, err = img.Rotate(bimg.Angle(180))
+
+	case 6:
+		rotatedImg, err = img.Rotate(bimg.Angle(-90))
+
+	case 8:
+		rotatedImg, err = img.Rotate(bimg.Angle(90))
+	}
 	if err != nil {
 		return err
 	}
