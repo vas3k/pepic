@@ -74,7 +74,7 @@ global:
 Don't forget to mount upload volume to store files on host (or you can lose those files when container will be killed).
 
 ```
-docker run -p 8118:8118 -v /host/dir/uploads:/app/uploads $(docker build -q .)
+docker run -p 8118:8118 -v /host/dir/uploads:/app/uploads --restart=always $(docker build -q .)
 ```
 
 If you prefer docker-compose, you can use it too. Check out the included [docker-compose.example.yml](docker-compose.example.yml). 
