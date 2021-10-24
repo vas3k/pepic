@@ -58,7 +58,7 @@ You can tweak them for yourself and rebuild the docker again (step 3) to apply t
 
 Let's say, you want to host it on `https://media.mydomain.org`
 
-#### 1. Modify `config/config.yml` to your taste
+#### 1. Modify `etc/config/config.yml` to your taste
 
 ```
 global:
