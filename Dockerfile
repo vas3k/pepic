@@ -3,7 +3,7 @@ FROM alpine:edge AS builder
 ENV GOOS=linux
 ENV CGO_CFLAGS_ALLOW="-Xpreprocessor"
 
-RUN apk add --no-cache go gcc g++ vips-dev
+RUN apk add --no-cache go gcc g++ vips-dev git
 COPY . /build
 WORKDIR /build
 RUN go get
