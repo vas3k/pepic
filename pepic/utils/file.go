@@ -13,8 +13,10 @@ import (
 
 var canonicalExtensions = map[string]string{
 	".jpeg": ".jpg",
+	".jpe":  ".jpg",
 	".jfif": ".jpg",
 	".qt":   ".mov",
+	".moov": ".mov",
 	".f4v":  ".mp4",
 }
 
