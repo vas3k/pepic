@@ -9,7 +9,6 @@ import (
 	"github.com/xfrr/goffmpeg/transcoder"
 	"io/ioutil"
 	"log"
-	"mime"
 	"os"
 	"path"
 )
@@ -105,7 +104,7 @@ func (v *videoBackend) Convert(file *entity.ProcessingFile, newMimeType string) 
 	}
 
 	// create temp file output
-	ext, _ := mime.ExtensionsByType(newMimeType)
+	ext, _ := utils.ExtensionByMimeType(newMimeType)
 	newExt := ext[0]
 	convFilename := utils.ReplaceExt(file.Filename, newExt)
 	tempTransFile := path.Join(config.App.Videos.FFmpeg.TempDir, fmt.Sprintf("conv_%s", convFilename))
