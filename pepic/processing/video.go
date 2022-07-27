@@ -104,8 +104,7 @@ func (v *videoBackend) Convert(file *entity.ProcessingFile, newMimeType string) 
 	}
 
 	// create temp file output
-	ext, _ := utils.ExtensionByMimeType(newMimeType)
-	newExt := ext[0]
+	newExt, _ := utils.ExtensionByMimeType(newMimeType)
 	convFilename := utils.ReplaceExt(file.Filename, newExt)
 	tempTransFile := path.Join(config.App.Videos.FFmpeg.TempDir, fmt.Sprintf("conv_%s", convFilename))
 	dst, err = os.Create(tempTransFile)
