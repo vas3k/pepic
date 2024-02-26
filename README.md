@@ -4,7 +4,7 @@
   <h1>PEPIC</h1>
 </div>
 
-Pepic is a small app that helps me to upload, store, convert and serve pictures or videos on your server.
+Pepic is a small app that helps me to upload, store, convert and serve pictures (or videos) on my dedicated servers.
 
 I use it as media proxy for my [pet-projects](https://github.com/vas3k/vas3k.club) and on [my blog](https://vas3k.com). 
 Pepic can convert, resize and optimize media files in-flight to save you monies and bandwidth. 
