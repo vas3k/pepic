@@ -21,19 +21,19 @@ Pepic is open source, however it's not meant to be used by anyone. Only if you'r
 
 ## Features
 
-- **Local files uploads**: Upload files as multipart/form-data or as a simple byte stream and store them to a local directory.
+- **Local file storage**: Upload files as multipart/form-data or as a simple byte stream and store them to a local directory.
 - **Automatic GIF to video conversion**: Convert GIFs to videos because GIFs suck, slow down web pages, and don't support hardware acceleration.
-- **Image and video conversion and optimization**: Transcode and optimize media files on upload or on-the-fly.
-- **Dynamic resizing**: Easily resize images in real-time by modifying the URL, which helps in reducing bandwidth and storage space on devices.
+- **Image and video transcoding and quality optimization**: Transcode and optimize media files on upload or on-the-fly. If you are doing a public storage, you can pre-set your own quality settings to save disk space and bandwidth.
+- **Dynamic resizing**: Easily resize images in real-time just by modifying original URL. You can automatically generate image/video previews on demand without uploading multiple versions of the file.
 - **High performance**: Pepic uses native libraries like `ffmpeg` and `vips` for video and image processing to ensure high performance and fast processing times.
 - **Local and containerized environments**: Designed to run smoothly in both local environments and within Docker containers, making it versatile for development and deployment.
-- **Custom configuration**: Flexible configuration options through `[config.yml](./etc/pepic/config.yml)`, allowing adjustments to image size, quality, automatic conversion, templates, etc.
+- **Custom configuration**: Flexible configuration options through [config.yml](etc/pepic/config.yml), allowing adjustments to image size, quality, automatic conversion, templates, etc.
 
 ![](static/images/screenshot1.png)
 
 ## 🤖 How to Run
 
-1. Install `vips` and `ffmpeg` first, as they are external dependencies
+1. Install `vips` and `ffmpeg` first, as they are two main external dependencies
 
 ```bash
 brew install vips ffmpeg
@@ -91,8 +91,8 @@ global:
   file_tree_split_chars: 3          # abcde.jpg -> ab/cd/e.jpg (never change this after release!)
 
 storage:
-  type: fs
-  dir: uploads/
+  type: fs        # only "fs" (file system) is supported for now, but you can code your own storage class
+  dir: uploads/   # relative or absolute path for actual files (back it up!)
 
 images:
   store_originals: false    # use "true" if you want byte-by-byte match of uploaded files (useful for photo blogs)
@@ -146,7 +146,7 @@ Add /500/ to its URL to get 500px (on the long side) version: **`https://imgs.co
 
 Works only if `live_resize` option is set to `true`. If `live_resize=false` — it returns the original version. Same for video transcoding (where it's off by default).
 
-> ⚠️ **Note:** Each resized version is saved as a separate file with its SHA hash. When the same version of the file is requested again, Pepic just read it from disk and does not waste CPU time resizing it again. However, if you have many resized versions stored, this can eat quite a bit of disk space. Be careful.
+> ⚠️ **Note:** Each resized version is saved as a separate file (with the same hash). When the same version of the file is requested again, Pepic just read it from disk and does not waste CPU time resizing it again. However, if you have many resized versions stored, this can eat quite a bit of disk space. Be careful.
 
 
 ### Converting file formats on demand
@@ -209,7 +209,7 @@ server {
 
     location / {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        
+
         proxy_read_timeout 300;
         proxy_connect_timeout 300;
         proxy_send_timeout 300;
