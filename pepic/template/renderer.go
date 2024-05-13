@@ -3,13 +3,14 @@ package template
 import (
 	"errors"
 	"fmt"
-	"github.com/flosch/pongo2"
-	"github.com/labstack/echo/v4"
-	"github.com/vas3k/pepic/pepic/entity"
 	"io"
 	"os"
 	"path"
 	"path/filepath"
+
+	"github.com/flosch/pongo2"
+	"github.com/labstack/echo/v4"
+	"github.com/vas3k/pepic/pepic/entity"
 )
 
 type Renderer struct {
@@ -28,6 +29,14 @@ func (t *Renderer) Render(w io.Writer, name string, data interface{}, c echo.Con
 			return "ERROR"
 		}
 		result, _ := tpl.Execute(pongo2.Context{"file": file})
+		return result
+	}
+	viewContext["renderMultipleFileTemplate"] = func(text string, files []*entity.ProcessingFile) string {
+		tpl, err := pongo2.FromString(text)
+		if err != nil {
+			return "ERROR"
+		}
+		result, _ := tpl.Execute(pongo2.Context{"files": files})
 		return result
 	}
 	viewContext["bytesHumanize"] = func(b int64) string {

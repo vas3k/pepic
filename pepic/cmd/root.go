@@ -1,10 +1,11 @@
 package cmd
 
 import (
+	"log"
+
 	"github.com/ilyakaznacheev/cleanenv"
 	"github.com/spf13/cobra"
 	"github.com/vas3k/pepic/pepic/config"
-	"log"
 )
 
 var (

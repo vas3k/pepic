@@ -1,8 +1,9 @@
 package entity
 
 import (
-	"github.com/vas3k/pepic/pepic/config"
 	"strings"
+
+	"github.com/vas3k/pepic/pepic/config"
 )
 
 type ProcessingFile struct {
@@ -15,6 +16,10 @@ type ProcessingFile struct {
 
 func (p *ProcessingFile) Url() string {
 	return config.App.Global.BaseUrl + p.Filename
+}
+
+func (p *ProcessingFile) IsGIF() bool {
+	return p.Mime == "image/gif"
 }
 
 func (p *ProcessingFile) IsImage() bool {

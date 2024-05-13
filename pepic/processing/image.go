@@ -4,16 +4,17 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/h2non/bimg"
-	"github.com/vas3k/pepic/pepic/config"
-	"github.com/vas3k/pepic/pepic/entity"
-	"github.com/vas3k/pepic/pepic/utils"
 	"image"
 	"image/color"
 	"image/draw"
 	"image/jpeg"
 	_ "image/png"
 	"log"
+
+	"github.com/h2non/bimg"
+	"github.com/vas3k/pepic/pepic/config"
+	"github.com/vas3k/pepic/pepic/entity"
+	"github.com/vas3k/pepic/pepic/utils"
 )
 
 type ImageBackend interface {
@@ -101,6 +102,9 @@ func (i *imageBackend) Convert(file *entity.ProcessingFile, newMimeType string) 
 		Quality:       config.App.Images.JPEGQuality,
 		Compression:   config.App.Images.PNGCompression,
 	})
+	if err != nil {
+		return err
+	}
 
 	newExt, _ := utils.ExtensionByMimeType(newMimeType)
 	file.Bytes = convertedImg
@@ -149,6 +153,6 @@ func (i imageBackend) mimeTypeToImageType(mimeType string) (bimg.ImageType, erro
 	if imageType, ok := mapping[mimeType]; ok {
 		return imageType, nil
 	} else {
-		return bimg.UNKNOWN, errors.New(fmt.Sprintf("'%s' is not supported", mimeType))
+		return bimg.UNKNOWN, fmt.Errorf("'%s' is not supported", mimeType)
 	}
 }

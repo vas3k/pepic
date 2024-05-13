@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/vas3k/pepic/pepic/cmd"
 	"log"
+
+	"github.com/vas3k/pepic/pepic/cmd"
 )
 
 func main() {

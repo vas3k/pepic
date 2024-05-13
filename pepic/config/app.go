@@ -22,6 +22,7 @@ type Config struct {
 		AutoConvert    string `yaml:"auto_convert" env:"IMAGE_AUTO_CONVERT" env-default:"false"`
 		JPEGQuality    int    `yaml:"jpeg_quality" env:"IMAGE_JPEG_QUALITY" env-default:"95"`
 		PNGCompression int    `yaml:"png_compression" env:"IMAGE_PNG_COMPRESSION" env-default:"0"`
+		GIFConvert     string `yaml:"gif_convert" env:"IMAGE_GIF_CONVERT" env-default:"video/mp4"`
 	} `yaml:"images"`
 
 	Videos struct {
@@ -45,10 +46,20 @@ type Config struct {
 	} `yaml:"videos"`
 
 	Meta struct {
-		Blocks []struct {
+		ImageTemplates []struct {
 			Title    string `yaml:"title"`
 			Template string `yaml:"template"`
-		} `yaml:"blocks" env:"META_BLOCKS"`
+		} `yaml:"image_templates" env:"META_IMAGE_TEMPLATES"`
+
+		VideoTemplates []struct {
+			Title    string `yaml:"title"`
+			Template string `yaml:"template"`
+		} `yaml:"video_templates" env:"META_VIDEO_TEMPLATES"`
+
+		MultiTemplates []struct {
+			Title    string `yaml:"title"`
+			Template string `yaml:"template"`
+		} `yaml:"multi_templates" env:"META_MULTI_TEMPLATES"`
 	} `yaml:"meta"`
 }
 

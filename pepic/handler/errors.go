@@ -2,9 +2,10 @@ package handler
 
 import (
 	"fmt"
-	"github.com/labstack/echo/v4"
 	"log"
 	"net/http"
+
+	"github.com/labstack/echo/v4"
 )
 
 type JSONError struct {

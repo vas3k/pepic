@@ -17,6 +17,7 @@ images:
   live_resize: true # enables special URLs that return resized images (increases storage usage)
   jpeg_quality: 95 # default quality of any saved jpeg
   png_compression: 0  # 0 - default, -1 - no compression, -2 - best speed, -3 - best compression
+  gif_convert: "video/mp4"  # video format for auto-converting gifs (turned off then store_originals=true)
 
 videos:
   store_originals: false # use "true" if you want to store original files (browser compatibility is on you)
@@ -37,7 +38,7 @@ videos:
     pix_fmt: "yuv420p"
 
 meta:
-  blocks:  # you can add your custom blocks to make it easier to copy-paste
+  image_templates:  # you can add your custom blocks to make it easier to copy-paste
     - title: "URL"
       template: "{{ file.Url }}"
     - title: "Simple Markdown"
@@ -50,11 +51,17 @@ meta:
       template: "{% verbatim %}{{{{% endverbatim %}.block-side.block-side__right  ![]({{ file.Url }}) {% verbatim %}}}}{% endverbatim %}"
     - title: "Left"
       template: "{% verbatim %}{{{{% endverbatim %}.block-side.block-side__left  ![]({{ file.Url }}) {% verbatim %}}}}{% endverbatim %}"
-    - title: "2 in a row"
-      template: "{% verbatim %}{{{{% endverbatim %}.block-media.block-media__2  ![]({{ file.Url }})  {% verbatim %}}}}{% endverbatim %}"
-    - title: "3 in a row"
-      template: "{% verbatim %}{{{{% endverbatim %}.block-media.block-media__3-full  ![]({{ file.Url }})  {% verbatim %}}}}{% endverbatim %}"
     - title: "75% center"
-      template: "{% verbatim %}{{{{% endverbatim %}.block-media.block-media__body.width-75 ![]({{ file.Url }}) {% verbatim %}}}}{% endverbatim %}"
+      template: "{% verbatim %}{{{{% endverbatim %}.block-media.block-media__body.width-75 {% for file in files %}![]({{ file.Url }}) {% endfor %} {% verbatim %}}}}{% endverbatim %}"
     - title: "50% center"
-      template: "{% verbatim %}{{{{% endverbatim %}.block-media.block-media__body.width-50 ![]({{ file.Url }}) {% verbatim %}}}}{% endverbatim %}"
+      template: "{% verbatim %}{{{{% endverbatim %}.block-media.block-media__body.width-50 {% for file in files %}![]({{ file.Url }}) {% endfor %} {% verbatim %}}}}{% endverbatim %}"
+  video_templates:
+    - title: "URL"
+      template: "{{ file.Url }}"
+    - title: "Simple Markdown"
+      template: "![]({{ file.Url }})"
+  multi_templates:
+    - title: "2 in a row"
+      template: "{% verbatim %}{{{{% endverbatim %}.block-media.block-media__2 {% for file in files %}![]({{ file.Url }}) {% endfor %}  {% verbatim %}}}}{% endverbatim %}"
+    - title: "3 in a row"
+      template: "{% verbatim %}{{{{% endverbatim %}.block-media.block-media__3-full  {% for file in files %}![]({{ file.Url }}) {% endfor %} {% verbatim %}}}}{% endverbatim %}"

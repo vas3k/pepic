@@ -2,12 +2,13 @@ package handler
 
 import (
 	"errors"
-	"github.com/labstack/echo/v4"
-	"github.com/vas3k/pepic/pepic/config"
-	"github.com/vas3k/pepic/pepic/entity"
 	"net/http"
 	"path"
 	"strconv"
+
+	"github.com/labstack/echo/v4"
+	"github.com/vas3k/pepic/pepic/config"
+	"github.com/vas3k/pepic/pepic/entity"
 )
 
 const MinLength = 200

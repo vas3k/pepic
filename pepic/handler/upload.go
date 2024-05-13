@@ -1,17 +1,16 @@
 package handler
 
 import (
-	"errors"
-	"fmt"
-	"github.com/labstack/echo/v4"
-	"github.com/vas3k/pepic/pepic/config"
-	"github.com/vas3k/pepic/pepic/entity"
-	"github.com/vas3k/pepic/pepic/utils"
-	"io/ioutil"
+	"io"
 	"log"
 	"mime/multipart"
 	"net/http"
 	"strings"
+
+	"github.com/labstack/echo/v4"
+	"github.com/vas3k/pepic/pepic/config"
+	"github.com/vas3k/pepic/pepic/entity"
+	"github.com/vas3k/pepic/pepic/utils"
 )
 
 type UploadResult struct {
@@ -68,7 +67,7 @@ func (h *PepicHandler) UploadBodyBytes(c echo.Context) error {
 
 	var bytes []byte
 	if c.Request().Body != nil {
-		bytes, _ = ioutil.ReadAll(c.Request().Body)
+		bytes, _ = io.ReadAll(c.Request().Body)
 	}
 
 	result, err := h.uploadBytes("", bytes)
@@ -82,26 +81,57 @@ func (h *PepicHandler) UploadBodyBytes(c echo.Context) error {
 }
 
 func (h *PepicHandler) uploadBytes(filename string, bytes []byte) (*entity.ProcessingFile, error) {
+	var err error
+
 	file := &entity.ProcessingFile{
 		Filename: filename,
 		Mime:     utils.DetectMimeType(filename, bytes),
 		Bytes:    bytes,
 	}
 
-	if file.IsImage() {
-		log.Printf("Processing image: %s", file.Mime)
-		err := utils.CalculateHashName(file)
-		if err != nil {
-			return file, err
+	log.Printf("Processing %s file", file.Mime)
+
+	hashedFilename, err := utils.CalculateHashName(file)
+	if err != nil {
+		return file, err
+	}
+
+	file.Filename = hashedFilename
+
+	if !config.App.Images.StoreOriginals {
+		if file.IsGIF() {
+			log.Printf("Converting GIF to video...")
+			err = h.Processing.Video.Convert(file, config.App.Images.GIFConvert)
+			if err != nil {
+				return file, err
+			}
 		}
 
-		if !config.App.Images.StoreOriginals {
+		if file.IsVideo() || file.IsGIF() {
+			log.Printf("Processing video...")
+
+			err = h.Processing.Video.Transcode(file, config.App.Videos.OriginalLength)
+			if err != nil {
+				return file, err
+			}
+
+			if config.App.Videos.AutoConvert != "false" {
+				err = h.Processing.Video.Convert(file, config.App.Videos.AutoConvert)
+				if err != nil {
+					return file, err
+				}
+			}
+		}
+
+		if file.IsImage() {
+			log.Printf("Processing image...")
+
 			err = h.Processing.Image.AutoRotate(file)
 			if err != nil {
 				return file, err
 			}
 
-			err := h.Processing.Image.Resize(file, config.App.Images.OriginalLength)
+			err = h.Processing.Image.Resize(file, config.App.Images.OriginalLength)
 			if err != nil {
 				return file, err
 			}
@@ -113,31 +143,9 @@ func (h *PepicHandler) uploadBytes(filename string, bytes []byte) (*entity.Proce
 				}
 			}
 		}
-	} else if file.IsVideo() {
-		log.Printf("Processing video: %s", file.Mime)
-		err := utils.CalculateHashName(file)
-		if err != nil {
-			return file, err
-		}
-
-		if !config.App.Videos.StoreOriginals {
-			err := h.Processing.Video.Transcode(file, config.App.Videos.OriginalLength)
-			if err != nil {
-				return file, err
-			}
-
-			if config.App.Videos.AutoConvert != "false" {
-				err := h.Processing.Video.Convert(file, config.App.Videos.AutoConvert)
-				if err != nil {
-					return file, err
-				}
-			}
-		}
-	} else {
-		return nil, errors.New(fmt.Sprintf("unsupported file type: %s", file.Mime))
 	}
 
-	err := h.Storage.StoreFile(file, "orig")
+	err = h.Storage.StoreFile(file, "orig")
 	if err != nil {
 		return file, err
 	}
@@ -151,7 +159,7 @@ func multipartToBytes(multipartFile *multipart.FileHeader) ([]byte, error) {
 		return nil, err
 	}
 	defer src.Close()
-	return ioutil.ReadAll(src)
+	return io.ReadAll(src)
 }
 
 func renderUploadResults(results []UploadResult, c echo.Context) error {

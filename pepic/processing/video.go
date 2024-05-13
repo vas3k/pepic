@@ -3,14 +3,14 @@ package processing
 import (
 	"errors"
 	"fmt"
+	"log"
+	"os"
+	"path"
+
 	"github.com/vas3k/pepic/pepic/config"
 	"github.com/vas3k/pepic/pepic/entity"
 	"github.com/vas3k/pepic/pepic/utils"
 	"github.com/xfrr/goffmpeg/transcoder"
-	"io/ioutil"
-	"log"
-	"os"
-	"path"
 )
 
 type VideoBackend interface {
@@ -71,7 +71,7 @@ func (v *videoBackend) Transcode(file *entity.ProcessingFile, maxLength int) err
 	}
 
 	// load transcoded video back to memory and remove temp files (deferred)
-	file.Bytes, err = ioutil.ReadFile(tempTransFile)
+	file.Bytes, err = os.ReadFile(tempTransFile)
 	if err != nil {
 		return err
 	}
@@ -83,10 +83,6 @@ func (v *videoBackend) Convert(file *entity.ProcessingFile, newMimeType string) 
 	log.Printf("Converting video '%s' to %s", file.Filename, newMimeType)
 	if file.Bytes == nil {
 		return errors.New("file data is empty, try reading it first")
-	}
-
-	if !file.IsVideo() {
-		return errors.New(fmt.Sprintf("'%s' is not supported video type", newMimeType))
 	}
 
 	// save bytes to disc because ffmpeg works with filenames
@@ -128,7 +124,7 @@ func (v *videoBackend) Convert(file *entity.ProcessingFile, newMimeType string) 
 	}
 
 	// load transcoded video back to memory and remove temp files (deferred)
-	file.Bytes, err = ioutil.ReadFile(tempTransFile)
+	file.Bytes, err = os.ReadFile(tempTransFile)
 	if err != nil {
 		return err
 	}

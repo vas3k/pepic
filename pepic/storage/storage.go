@@ -2,12 +2,13 @@ package storage
 
 import (
 	"errors"
-	"github.com/labstack/echo/v4"
-	"github.com/vas3k/pepic/pepic/entity"
-	"github.com/vas3k/pepic/pepic/utils"
 	"log"
 	"mime"
 	"path"
+
+	"github.com/labstack/echo/v4"
+	"github.com/vas3k/pepic/pepic/entity"
+	"github.com/vas3k/pepic/pepic/utils"
 )
 
 type Backend interface {

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+
 	"github.com/labstack/echo/v4"
 	"github.com/vas3k/pepic/pepic/config"
 	"github.com/vas3k/pepic/pepic/handler"

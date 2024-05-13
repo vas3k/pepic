@@ -2,12 +2,13 @@ package handler
 
 import (
 	"errors"
+	"net/http"
+	"time"
+
 	"github.com/labstack/echo/v4"
 	"github.com/vas3k/pepic/pepic/config"
 	"github.com/vas3k/pepic/pepic/processing"
 	"github.com/vas3k/pepic/pepic/storage"
-	"net/http"
-	"time"
 )
 
 type PepicHandler struct {

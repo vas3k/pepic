@@ -23,15 +23,41 @@
             </div>
 
             <div class="meta-blocks">
-                {% for element in blocks %}
+                {% if file.IsImage %}
+                    {% for template in meta.ImageTemplates %}
+                        <div class="meta-block">
+                            <div class="meta-block-title">{{ template.Title }}</div>
+                            <textarea class="meta-block-template">{{ renderFileTemplate(template.Template, file) }}</textarea>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+
+                {% if file.IsVideo %}
+                    {% for template in meta.VideoTemplates %}
                     <div class="meta-block">
-                        <div class="meta-block-title">{{ element.Title }}</div>
-                        <textarea class="meta-block-template">{{ renderFileTemplate(element.Template, file) }}</textarea>
+                        <div class="meta-block-title">{{ template.Title }}</div>
+                        <textarea class="meta-block-template">{{ renderFileTemplate(template.Template, file) }}</textarea>
                     </div>
-                {% endfor %}
+                    {% endfor %}
+                {% endif %}
             </div>
         </div>
     {% endfor %}
+
+    {% if files|length > 1 %}
+        <div class="block meta">
+            <div class="meta-title">
+                Multiple file templates
+            </div>
+
+            {% for template in meta.MultiTemplates %}
+            <div class="meta-block">
+                <div class="meta-block-title">{{ template.Title }}</div>
+                <textarea class="meta-block-template">{{ renderMultipleFileTemplate(template.Template, files) }}</textarea>
+            </div>
+            {% endfor %}
+        </div>
+    {% endif %}
 
     <div class="logo">
         <a href="/"><img src="/static/images/logo.png">&nbsp;PEPIC</a>

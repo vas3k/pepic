@@ -1,15 +1,16 @@
 package handler
 
 import (
+	"net/http"
+	"strings"
+
 	"github.com/labstack/echo/v4"
 	"github.com/vas3k/pepic/pepic/config"
 	"github.com/vas3k/pepic/pepic/entity"
-	"net/http"
-	"strings"
 )
 
 // GET /meta/:name
-// Returns HTML page with the image and its metadata
+// Render HTML page with uploaded images/videos and pre-defined templates for them
 func (h *PepicHandler) GetMeta(c echo.Context) error {
 	names := strings.Split(c.Param("name"), ",")
 	var files []*entity.ProcessingFile
@@ -23,8 +24,8 @@ func (h *PepicHandler) GetMeta(c echo.Context) error {
 	}
 
 	return c.Render(http.StatusOK, "meta.html", map[string]interface{}{
-		"files":  files,
-		"host":   c.Request().URL,
-		"blocks": config.App.Meta.Blocks,
+		"files": files,
+		"host":  c.Request().URL,
+		"meta":  config.App.Meta,
 	})
 }

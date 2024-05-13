@@ -3,12 +3,13 @@ package utils
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"github.com/vas3k/pepic/pepic/config"
-	"github.com/vas3k/pepic/pepic/entity"
 	"log"
 	"mime"
 	"path"
 	"strings"
+
+	"github.com/vas3k/pepic/pepic/config"
+	"github.com/vas3k/pepic/pepic/entity"
 )
 
 var canonicalExtensions = map[string]string{
@@ -60,17 +61,16 @@ func ReplaceExt(filename string, newExt string) string {
 	return filename[:len(filename)-len(ext)] + newExt
 }
 
-func CalculateHashName(file *entity.ProcessingFile) error {
+func CalculateHashName(file *entity.ProcessingFile) (string, error) {
 	log.Printf("Calculating file name: %s", file.Filename)
 	ext, err := ExtensionByMimeType(file.Mime)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	sum := sha256.Sum256(file.Bytes)
-	file.Filename = strings.ToLower(hex.EncodeToString(sum[:]) + ext)
 
-	return nil
+	return strings.ToLower(hex.EncodeToString(sum[:]) + ext), nil
 }
 
 func CanonizeFileName(filename string) string {
