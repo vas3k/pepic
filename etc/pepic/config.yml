@@ -16,12 +16,12 @@ images:
   auto_convert: false # mime type to auto-convert uploaded images ("image/jpeg", "image/png" or false)
   live_resize: true # enables special URLs that return resized images (increases storage usage)
   jpeg_quality: 95 # default quality of any saved jpeg
-  png_compression: 0  # 0 - default, -1 - no compression, -2 - best speed, -3 - best compression
+  png_compression: 0  # 0 - default, -1 - no compression, -2 - best speed, -3 - best compression (yes, with minus)
   gif_convert: "video/mp4"  # video format for auto-converting gifs (turned off then store_originals=true)
 
 videos:
   store_originals: false # use "true" if you want to store original files (browser compatibility is on you)
-  original_length: 480 # resize uploaded videos (only if store_originals=false)
+  original_length: 720 # resize uploaded videos (only if store_originals=false)
   live_resize: false # turned off by default to save disk space and your cpu (always returns original)
   auto_convert: "video/mp4" # mime type to auto-convert uploaded images (for example "video/mp4")
   ffmpeg:
@@ -30,15 +30,15 @@ videos:
     crf: 24 # quality factor — 0-51, where 0 is lossless, 51 — pixelated shit. 23-28 recommended.
     buffer_size: 1024000
     video_codec: "libx264"
-    video_bitrate: "512k"
+    video_bitrate: "1024k"
     video_profile: "main"
     audio_codec: "aac"
     audio_bitrate: "128k"
     mov_flags: "+faststart"
     pix_fmt: "yuv420p"
 
-meta:
-  image_templates:  # you can add your custom blocks to make it easier to copy-paste
+meta:  # optional, only if you use web interface
+  image_templates:  # add your custom templates here for easier copy-paste
     - title: "URL"
       template: "{{ file.Url }}"
     - title: "Simple Markdown"
