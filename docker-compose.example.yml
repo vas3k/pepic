@@ -14,3 +14,7 @@ services:
       - 8118:8118
     user: "1000" # set your real uid (by default only root can read the uploaded files)
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100M"

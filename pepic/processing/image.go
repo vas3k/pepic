@@ -149,6 +149,7 @@ func (i imageBackend) mimeTypeToImageType(mimeType string) (bimg.ImageType, erro
 		"image/svg":   bimg.SVG,
 		"image/heic":  bimg.HEIF,
 		"image/heif":  bimg.HEIF,
+		"image/avif":  bimg.AVIF,
 	}
 	if imageType, ok := mapping[mimeType]; ok {
 		return imageType, nil

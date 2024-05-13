@@ -146,14 +146,21 @@ Add /500/ to its URL to get 500px (on the long side) version: **`https://imgs.co
 
 Works only if `live_resize` option is set to `true`. If `live_resize=false` — it returns the original version. Same for video transcoding (where it's off by default).
 
+> ⚠️ **Note:** Each resized version is saved as a separate file with its SHA hash. When the same version of the file is requested again, Pepic just read it from disk and does not waste CPU time resizing it again. However, if you have many resized versions stored, this can eat quite a bit of disk space. Be careful.
+
 
 ### Converting file formats on demand
 
-// Not implemented yet, sorry...
+// Not implemented yet, sorry... PRs are welcome
 
+
+### GIF to video conversion
+
+Because GIFs are terrible, Pepic automatically converts them to mp4 videos by default. You can change it to any other format you like using `gif_convert` setting in `config.yml`.
+
+You can disable this behavior only if you set the `store_originals=true` flag, then GIF files will be saved "as is".
 
 ![](static/images/screenshot2.png)
-
 
 
 ## 🚢 Production Deployment
@@ -173,7 +180,7 @@ global:
   max_upload_size: "500M"
 ```
 
-2. Build and run production Docker
+2. Build and run production version of the Docker container
 
 Don't forget to mount upload volume to store files on host (or you can lose those files when the container is killed).
 
@@ -186,9 +193,11 @@ You can easily transform it into your favourite k8s config or whatever is fashio
 
 > 👍 Don't forget to periodically backup the `/host/dir/uploads` directory just in case :)
 
-3. Use nginx or your other favourite proxy
+3. Use nginx, traefik, k8s or your other favourite proxy
 
 Just proxy all calls from the domain (media.mydomain.org) to Pepic backend (0.0.0.0:8118). Don't forget to set `max file size` and `proxy timeot` directives to avoid gateway errors on big files (especially videos).
+
+Here's an example for nginx:
 
 ```nginx
 server {
@@ -200,6 +209,7 @@ server {
 
     location / {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        
         proxy_read_timeout 300;
         proxy_connect_timeout 300;
         proxy_send_timeout 300;
