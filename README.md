@@ -22,9 +22,9 @@ Pepic is open source, however it's not meant to be used by anyone. Only if you'r
 ## Features
 
 - **Local file storage**: Upload files as multipart/form-data or as a simple byte stream and store them to a local directory.
-- **Automatic GIF to video conversion**: Convert GIFs to videos because GIFs suck, slow down web pages, and don't support hardware acceleration.
+- **Automatic GIF to video conversion**: Because GIFs suck, they slow down web pages and don't support hardware acceleration.
 - **Image and video transcoding and quality optimization**: Transcode and optimize media files on upload or on-the-fly. If you are doing a public storage, you can pre-set your own quality settings to save disk space and bandwidth.
-- **Dynamic resizing**: Easily resize images in real-time just by modifying original URL. You can automatically generate image/video previews on demand without uploading multiple versions of the file.
+- **Dynamic resizing**: Easily resize images just by modifying original URL. You can automatically generate image/video previews on demand without uploading multiple versions of the file.
 - **High performance**: Pepic uses native libraries like `ffmpeg` and `vips` for video and image processing to ensure high performance and fast processing times.
 - **Local and containerized environments**: Designed to run smoothly in both local environments and within Docker containers, making it versatile for development and deployment.
 - **Custom configuration**: Flexible configuration options through [config.yml](etc/pepic/config.yml), allowing adjustments to image size, quality, automatic conversion, templates, etc.
