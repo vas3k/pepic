@@ -13,7 +13,7 @@ import (
 	"github.com/vas3k/pepic/pepic/utils"
 )
 
-var mediaHash = regexp.MustCompile(`^[a-f0-9]{64}$`)
+var mediaName = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
 
 type Backend interface {
 	PutObject(objectName string, data []byte) (string, error)
@@ -37,7 +37,7 @@ type storage struct {
 func (s *storage) GetFile(directory string, filename string) (*entity.ProcessingFile, error) {
 	extension := path.Ext(filename)
 	mimeType, _, allowed := config.App.Media.FormatByExtension(extension)
-	if !allowed || !mediaHash.MatchString(strings.TrimSuffix(filename, extension)) {
+	if !allowed || !mediaName.MatchString(strings.TrimSuffix(filename, extension)) {
 		return nil, errors.New("invalid media filename")
 	}
 	canonicalFilename := utils.CanonizeFileName(filename)

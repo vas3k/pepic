@@ -47,3 +47,16 @@ func TestStorageAtomicReplacement(t *testing.T) {
 		}
 	}
 }
+
+func TestLegacyNameValidationRejectsUnsafePaths(t *testing.T) {
+	old := config.App
+	t.Cleanup(func() { config.App = old })
+	config.App.Global.FileTreeSplitChars = 3
+	backend := NewFileSystemBackend(t.TempDir())
+	store := NewStorage(backend)
+	for _, name := range []string{"../a.png", "a/b.png", `a\b.png`, ".hidden.png", "a..png", "a\x00.png", "legacy.exe", "legacy.zip"} {
+		if _, err := store.GetFile("orig", name); err == nil || err.Error() != "invalid media filename" {
+			t.Fatalf("unsafe filename reached storage lookup: %q: %v", name, err)
+		}
+	}
+}
