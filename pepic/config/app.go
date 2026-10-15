@@ -1,6 +1,7 @@
 package config
 
 type Config struct {
+	Jobs                JobsConfig        `yaml:"jobs"`
 	CanonicalExtensions map[string]string `yaml:"canonical_extensions"`
 	Media               MediaConfig       `yaml:"media"`
 	Safety              SafetyConfig      `yaml:"safety"`

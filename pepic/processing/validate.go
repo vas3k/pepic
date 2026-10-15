@@ -23,6 +23,10 @@ import (
 var ErrInvalidMedia = errors.New("unsupported or invalid media")
 
 func ValidateMedia(data []byte) (string, error) {
+	return ValidateMediaContext(context.Background(), data)
+}
+
+func ValidateMediaContext(ctx context.Context, data []byte) (string, error) {
 	if len(data) == 0 {
 		return "", ErrInvalidMedia
 	}
@@ -51,7 +55,7 @@ func ValidateMedia(data []byte) (string, error) {
 				return "", ErrInvalidMedia
 			}
 		}
-		if err := validateVideo(data, format); err != nil {
+		if err := validateVideo(ctx, data, format); err != nil {
 			return "", err
 		}
 	default:
@@ -111,7 +115,7 @@ func (b *cappedOutput) Write(p []byte) (int, error) {
 	return b.Buffer.Write(p)
 }
 
-func validateVideo(data []byte, format config.MediaFormat) error {
+func validateVideo(parent context.Context, data []byte, format config.MediaFormat) error {
 	dir, err := os.MkdirTemp(config.App.Videos.FFmpeg.TempDir, "pepic-probe-*")
 	if err != nil {
 		return err
@@ -121,7 +125,7 @@ func validateVideo(data []byte, format config.MediaFormat) error {
 	if err = os.WriteFile(input, data, 0600); err != nil {
 		return err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(config.App.Safety.ProbeTimeoutSeconds)*time.Second)
+	ctx, cancel := context.WithTimeout(parent, time.Duration(config.App.Safety.ProbeTimeoutSeconds)*time.Second)
 	defer cancel()
 	args := mediaInputArgs(format)
 	args = append(args,
@@ -173,7 +177,7 @@ func validateVideo(data []byte, format config.MediaFormat) error {
 	if !validStreams || !validDuration {
 		return ErrInvalidMedia
 	}
-	ctxDecode, cancelDecode := context.WithTimeout(context.Background(), time.Duration(config.App.Safety.DecodeTimeoutSeconds)*time.Second)
+	ctxDecode, cancelDecode := operationTimeout(parent, config.App.Safety.DecodeTimeoutSeconds)
 	defer cancelDecode()
 	decodeArgs := append(mediaInputArgs(format), "-nostdin", "-xerror")
 	decodeArgs = append(decodeArgs,

@@ -14,11 +14,22 @@
             </div>
             <form action="/upload/multipart/" method="post" class="upload-form" enctype="multipart/form-data">
                 <input type="hidden" name="code" value="{{ secretCode }}">
-                <input type="file" name="media" class="upload-file" accept="{{ acceptedMediaTypes }}" onchange="this.form.submit()"
+                <input type="file" name="media" class="upload-file" accept="{{ acceptedMediaTypes }}"
                        multiple>
                 <button type="submit" class="button upload-submit">Upload</button>
             </form>
         </div>
+        <section class="block upload-status" aria-label="Upload progress" hidden>
+            <p class="upload-message" role="status" aria-live="polite"></p>
+            <progress class="upload-progress" aria-label="File transfer progress" hidden></progress>
+        </section>
+        <section class="jobs-dashboard" aria-labelledby="jobs-heading" data-poll-seconds="{{ jobPollSeconds }}">
+            <h2 id="jobs-heading">Upload jobs</h2>
+            <p>Shared queue for all background uploads. You can upload more files while processing continues.</p>
+            <p class="jobs-summary" role="status" aria-live="polite">Loading jobs…</p>
+            <div class="jobs-list"></div>
+        </section>
+        <script src="/static/js/upload.js" defer></script>
     {% else %}
         <div class="block auth">
             <form action="" method="get" class="auth-form">

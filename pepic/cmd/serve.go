@@ -1,8 +1,14 @@
 package cmd
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/labstack/echo/v5"
@@ -34,6 +40,11 @@ func serve() error {
 		),
 	}
 
+	if err := h.OpenJobs(); err != nil {
+		return err
+	}
+	h.Jobs.Start()
+
 	e.Use(middleware.Recover())
 	e.Use(middleware.BodyLimit(limit))
 	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
@@ -59,6 +70,10 @@ func serve() error {
 	e.GET("/", h.Index)
 	e.POST("/upload/multipart/", h.UploadMultipart)
 	e.POST("/upload/bytes/", h.UploadBodyBytes)
+	e.POST("/upload/jobs/multipart/", h.UploadJobMultipart)
+	e.POST("/upload/jobs/bytes/", h.UploadJobBytes)
+	e.GET("/jobs/", h.ListJobs)
+	e.GET("/jobs/:id", h.GetJob)
 	e.GET("/meta/:name", h.GetMeta)
 	e.GET("/:length/:name", h.GetResizedFile)
 	e.GET("/:name", h.GetOriginalFile)
@@ -73,5 +88,28 @@ func serve() error {
 		IdleTimeout:       time.Duration(config.App.Safety.IdleTimeoutSeconds) * time.Second,
 		MaxHeaderBytes:    config.App.Safety.MaxHeaderBytes,
 	}
-	return server.ListenAndServe()
+	signals, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	serverError := make(chan error, 1)
+	go func() { serverError <- server.ListenAndServe() }()
+	select {
+	case err := <-serverError:
+		h.Jobs.Close()
+		return err
+	case <-signals.Done():
+	}
+	shutdown, cancel := context.WithTimeout(context.Background(), time.Duration(config.App.Jobs.ShutdownTimeoutSeconds)*time.Second)
+	defer cancel()
+	h.Jobs.Stop()
+	if err := server.Shutdown(shutdown); err != nil && !errors.Is(err, context.Canceled) {
+		log.Printf("HTTP shutdown: %v", err)
+	}
+	closed := make(chan error, 1)
+	go func() { closed <- h.Jobs.Close() }()
+	select {
+	case err := <-closed:
+		return err
+	case <-shutdown.Done():
+		return fmt.Errorf("shutdown deadline reached; unfinished jobs will resume on restart")
+	}
 }

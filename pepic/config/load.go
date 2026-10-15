@@ -8,7 +8,7 @@ import (
 )
 
 func Defaults() Config {
-	next := Config{Media: defaultMedia(), Safety: defaultSafety(), CanonicalExtensions: defaultCanonicalExtensions()}
+	next := Config{Jobs: defaultJobs(), Media: defaultMedia(), Safety: defaultSafety(), CanonicalExtensions: defaultCanonicalExtensions()}
 	next.Images.GIFConvert = "video/mp4"
 	next.Videos.AutoConvert = next.Images.GIFConvert
 	return next

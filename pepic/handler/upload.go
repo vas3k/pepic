@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"log"
 	"mime/multipart"
@@ -100,6 +101,10 @@ func (h *PepicHandler) UploadBodyBytes(c *echo.Context) error {
 }
 
 func (h *PepicHandler) uploadBytes(filename string, bytes []byte) (*entity.ProcessingFile, error) {
+	return h.uploadBytesContext(context.Background(), filename, bytes)
+}
+
+func (h *PepicHandler) uploadBytesContext(ctx context.Context, filename string, bytes []byte) (*entity.ProcessingFile, error) {
 	limit, err := config.UploadLimit()
 	if err != nil {
 		return nil, err
@@ -107,7 +112,7 @@ func (h *PepicHandler) uploadBytes(filename string, bytes []byte) (*entity.Proce
 	if int64(len(bytes)) > limit {
 		return nil, echo.NewHTTPError(413, "Upload too large")
 	}
-	mime, err := processing.ValidateMedia(bytes)
+	mime, err := processing.ValidateMediaContext(ctx, bytes)
 	if err != nil {
 		if errors.Is(err, processing.ErrInvalidMedia) {
 			return nil, echo.NewHTTPError(415, "Unsupported, corrupt, or oversized media")
@@ -132,7 +137,7 @@ func (h *PepicHandler) uploadBytes(filename string, bytes []byte) (*entity.Proce
 	if (file.IsVideo() && !config.App.Videos.StoreOriginals) || (!file.IsVideo() && !config.App.Images.StoreOriginals) {
 		if file.IsAnimated() {
 			log.Printf("Converting animated image to video...")
-			err = h.Processing.Video.Convert(file, config.App.Images.GIFConvert)
+			err = h.Processing.Video.WithContext(ctx).Convert(file, config.App.Images.GIFConvert)
 			if err != nil {
 				return file, err
 			}
@@ -142,11 +147,11 @@ func (h *PepicHandler) uploadBytes(filename string, bytes []byte) (*entity.Proce
 			log.Printf("Processing video...")
 
 			if config.App.Videos.AutoConvert != "false" && config.App.Videos.AutoConvert != file.Mime {
-				if err = h.Processing.Video.Convert(file, config.App.Videos.AutoConvert); err != nil {
+				if err = h.Processing.Video.WithContext(ctx).Convert(file, config.App.Videos.AutoConvert); err != nil {
 					return file, err
 				}
 			}
-			if err = h.Processing.Video.Transcode(file, config.App.Videos.OriginalLength); err != nil {
+			if err = h.Processing.Video.WithContext(ctx).Transcode(file, config.App.Videos.OriginalLength); err != nil {
 				return file, err
 			}
 
@@ -162,6 +167,9 @@ func (h *PepicHandler) uploadBytes(filename string, bytes []byte) (*entity.Proce
 
 	if int64(len(file.Bytes)) > limit {
 		return nil, echo.NewHTTPError(413, "Processed media too large")
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 	err = h.Storage.StoreFile(file, "orig")
 	if err != nil {

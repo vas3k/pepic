@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
-	"time"
 
 	"github.com/vas3k/pepic/pepic/config"
 	"github.com/vas3k/pepic/pepic/entity"
@@ -16,13 +15,16 @@ import (
 )
 
 type VideoBackend interface {
+	WithContext(context.Context) VideoBackend
 	Transcode(file *entity.ProcessingFile, maxLength int) error
 	Convert(file *entity.ProcessingFile, newMimeType string) error
 }
 
-type videoBackend struct{}
+type videoBackend struct{ ctx context.Context }
 
-func NewVideoBackend() VideoBackend { return &videoBackend{} }
+func NewVideoBackend() VideoBackend { return &videoBackend{ctx: context.Background()} }
+
+func (v *videoBackend) WithContext(ctx context.Context) VideoBackend { return &videoBackend{ctx: ctx} }
 
 func (v *videoBackend) Transcode(file *entity.ProcessingFile, maxLength int) error {
 	return v.process(file, file.Mime, maxLength)
@@ -58,7 +60,7 @@ func (v *videoBackend) process(file *entity.ProcessingFile, mime string, length 
 	if err != nil {
 		return err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(config.App.Safety.TranscodeTimeoutSeconds)*time.Second)
+	ctx, cancel := operationTimeout(v.ctx, config.App.Safety.TranscodeTimeoutSeconds)
 	defer cancel()
 	args := append(mediaInputArgs(format), "-nostdin", "-xerror", "-filter_threads", strconv.Itoa(config.App.Safety.FFmpegThreads))
 	args = append(args,

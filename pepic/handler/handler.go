@@ -8,11 +8,13 @@ import (
 
 	"github.com/labstack/echo/v5"
 	"github.com/vas3k/pepic/pepic/config"
+	"github.com/vas3k/pepic/pepic/jobs"
 	"github.com/vas3k/pepic/pepic/processing"
 	"github.com/vas3k/pepic/pepic/storage"
 )
 
 type PepicHandler struct {
+	Jobs       *jobs.Queue
 	Processing processing.Processing
 	Storage    storage.Storage
 }

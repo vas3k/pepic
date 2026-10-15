@@ -45,6 +45,9 @@ func UploadLimit() (int64, error) {
 }
 
 func Validate() error {
+	if err := App.Jobs.Validate(); err != nil {
+		return err
+	}
 	if App.Images.PNGCompression < -3 || App.Images.PNGCompression > 9 {
 		return fmt.Errorf("invalid PNG compression")
 	}

@@ -146,6 +146,49 @@ Malformed requests return 400, invalid/missing upload secrets 401, oversized upl
 
 Keep `images.original_length` consistent with existing URLs: requests at or above that threshold return the original. GIF resizing follows the FFmpeg/video resize setting. Conversion through a URL extension is not implemented.
 
+### Background uploads
+
+The existing `/upload/bytes/` and `/upload/multipart/` API is unchanged: it processes synchronously and returns HTTP 201 with `{"uploaded":[...]}` for JSON clients, or the existing browser redirect. Existing third-party integrations need no changes. Long synchronous requests can still hit proxy timeouts.
+
+The web interface now uses separate background endpoints for both images and videos:
+
+- `POST /upload/jobs/bytes/` accepts a raw file.
+- `POST /upload/jobs/multipart/` accepts the same `media` multipart fields as the existing API.
+- `GET /jobs/<id>` returns status and results.
+- `GET /jobs/` lists all retained background jobs, with active jobs first, and supplies `poll_after_seconds`. All endpoints use the existing secret/cookie authentication. The list is shared across everyone with upload access.
+
+A successful submission returns **202 Accepted** with `id`, `state`, `status_url`, `poll_after_seconds`, `files`, and `results`, plus a `Location` header. Poll `status_url` until `state` is `succeeded` or `failed`; intermediate states are `queued` and `processing`. Each completed result contains `filename` and `url`. The web page polls the shared queue automatically and displays all retained jobs, including those submitted from other tabs or clients. Reloading discovers jobs from the server; no local job ID is required. Multipart job records include `source_names` for display.
+
+202 means the bytes were staged privately, **not** that the media has passed validation. Workers run the same content validation, size/pixel checks, canonical naming, conversion, and storage pipeline as synchronous uploads. Failed files are not published. A batch can have saved earlier results when a later file fails; these remain listed in `results`.
+
+The HTML uploader uses a measured byte-transfer progress bar. During processing it shows completed-file counts and an indeterminate activity bar, not an estimated encoding percentage. Completed jobs stay on the page with URLs, copy buttons, and links to previews/embed codes. More uploads can be submitted while earlier jobs run. The list covers background jobs; synchronous third-party uploads retain their existing immediate response and do not create queue records.
+
+EasyMDE in vas3k.club and `upload_image_multipart` in base.vas3k.club continue to post `media` to `/upload/multipart/` with `Accept: application/json`, passing `code` in the form or query string. They still receive HTTP 201 with an `uploaded` array, not a job ID. Their own request timeouts, including Django’s 60-second timeout, still apply to synchronous processing.
+
+Jobs are persisted under `storage.dir/.jobs` by default, inside the existing persistent volume. Pending inputs are private and removed on completion/failure. Interrupted jobs resume after restart, retaining results already recorded. Processing may repeat the interrupted file, using the same content-derived filename. One Pepic process owns a jobs directory; multiple replicas must not share it. Keep the directory on a local filesystem that supports locking and atomic rename.
+
+Defaults live in [jobs.go](pepic/config/jobs.go), so no extra YAML section is needed. Optional `jobs` fields and corresponding environment variables are:
+
+| Field | Default | Environment |
+| --- | --- | --- |
+| `dir` | `storage.dir/.jobs` | `JOBS_DIR` |
+| `workers` | 1 | `JOBS_WORKERS` |
+| `max_pending` | 20, including running jobs | `JOBS_MAX_PENDING` |
+| `max_bytes` | 536870912 (512 MiB) of staged inputs/reservations | `JOBS_MAX_BYTES` |
+| `max_records` | 1000 queued/running/completed records | `JOBS_MAX_RECORDS` |
+| `max_record_bytes` | 65536 | `JOBS_MAX_RECORD_BYTES` |
+| `retention_seconds` | 86400 after completion | `JOBS_RETENTION_SECONDS` |
+| `poll_seconds` | 2 | `JOBS_POLL_SECONDS` |
+| `processing_timeout_seconds` | 1800 per file | `JOBS_PROCESSING_TIMEOUT_SECONDS` |
+| `max_attempts` | 3 starts, including restart recovery | `JOBS_MAX_ATTEMPTS` |
+| `shutdown_timeout_seconds` | 30 | `JOBS_SHUTDOWN_TIMEOUT_SECONDS` |
+
+Workers share `safety.max_concurrent_jobs` with synchronous uploads and live resizing. Admission reserves one maximum upload's worth of disk space until staging completes; a full queue returns 503. This caps staged input data, not all filesystem usage: provide space for job metadata, multipart temporary files, FFmpeg output, and published originals. Completed metadata expires after retention; media URLs do not expire with jobs.
+
+Background jobs allow up to 30 minutes per file for validation and processing, with FFmpeg decode/transcode deadlines extended within that bound. The existing synchronous deadlines remain unchanged. Native in-process image work cannot be forcibly interrupted; memory/CPU container limits still apply. The 600-second default **video duration** limit is independent of processing time.
+
+Only upload transfer and private staging occur in the submission request; expensive validation/conversion happens after that request returns. This avoids Cloudflare timeouts caused by long processing. Cloudflare upload-size and transfer limits still apply. Do not cache `/jobs/`, `/upload/`, `/meta/`, `/`, or the upload JavaScript. Remove blanket `immutable` headers for these paths at nginx/CDN level; the application sends `no-store` for job requests and the upload page. If an upload response is lost, check the shared queue before retrying; a received upload will appear there.
+
 ## Production deployment
 
 Build and test the version you intend to deploy:
@@ -191,6 +234,8 @@ Nginx's size units differ from Pepic's decimal `M`; Pepic remains authoritative.
 
 ### Upgrade checklist
 
+- Purge previously cached upload HTML at `/` (and `/meta/` if cached) when applying the new nginx cache rules; existing browser caches may need a hard reload to load the new upload UI.
+- Keep `storage.dir/.jobs` on the persistent volume and allow at least the configured shutdown timeout before force-killing the container.
 - Preserve `STORAGE_DIR`, `FILE_TREE_SPLIT_CHARS`, canonical extensions, and the public base URL. Check volume write permissions under the new non-root runtime.
 - The bundled upload cap is now **50M**, previously 500M. Existing explicit YAML/environment limits remain effective. Oversized historical originals can still be downloaded, but new resizing is subject to current limits.
 - SVG and arbitrary FFmpeg formats are no longer allowed. Audit earlier uploads and remove unwanted files separately; this release does not delete stored data. Purge any unwanted cached files from your CDN too.
@@ -206,7 +251,7 @@ go vet ./...
 go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 ```
 
-Native development dependencies and FFmpeg must be installed to run the full suite. The Docker `test` target provides them. Tests cover direct/multipart upload validation, disguised files, truncation, size/pixel/concurrency limits, real media decoding, conversion, canonical filenames, configuration precedence, storage confinement, authentication, downloads, and resizing.
+Native development dependencies and FFmpeg must be installed to run the full suite. The Docker `test` target provides them. Tests cover direct/multipart upload validation, disguised files, truncation, size/pixel/concurrency limits, real media decoding, conversion, canonical filenames, configuration precedence, storage confinement, authentication, downloads, and resizing. Background-job tests also cover admission, private staging, failure cleanup, restart recovery, partial batches, deadlines, authentication, and compatibility with synchronous uploads.
 
 CI tests pull requests and runs tests plus the Go vulnerability scan before publishing images for pushes to `master`. It publishes both `latest` and commit-SHA tags using `GITHUB_TOKEN`; the repository must have permission to write its GHCR package. No registry personal access token is required.
 

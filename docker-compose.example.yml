@@ -21,6 +21,7 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
+    stop_grace_period: 40s
     restart: unless-stopped
     logging:
       driver: json-file

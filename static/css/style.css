@@ -282,3 +282,94 @@ img {
                 padding: 10px;
                 box-sizing: border-box;
             }
+.upload-status {
+    max-width: 650px;
+    margin: 30px auto;
+}
+
+.upload-status:empty {
+    display: none;
+}
+
+.jobs-dashboard {
+    max-width: 900px;
+    margin: 50px auto;
+    padding: 0 20px;
+}
+
+.jobs-summary, .job-created, .job-detail {
+    color: #c9ced4;
+}
+
+.job-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.job-heading h3 {
+    margin: 0;
+}
+
+.job-state {
+    padding: 5px 12px;
+    border-radius: 20px;
+    background: #4d535a;
+}
+
+.job-card[data-state="processing"] .job-state {
+    background: #573dab;
+}
+
+.job-card[data-state="succeeded"] .job-state {
+    background: #236548;
+}
+
+.job-card[data-state="failed"] .job-state {
+    background: #923b45;
+}
+
+.job-created {
+    display: block;
+    margin: 12px 0;
+    font-size: 85%;
+}
+
+.upload-progress, .job-progress {
+    width: 100%;
+    height: 18px;
+    accent-color: #9e88ec;
+}
+
+.job-results {
+    list-style: none;
+    padding: 0;
+}
+
+.job-result {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 16px 0;
+}
+
+.job-url {
+    flex: 1;
+    min-width: 180px;
+    overflow-wrap: anywhere;
+    font-size: 85%;
+}
+
+.job-copy {
+    font-size: 85%;
+}
+
+.upload-status[hidden], progress[hidden] {
+    display: none;
+}
+
+.job-files {
+    overflow-wrap: anywhere;
+}
