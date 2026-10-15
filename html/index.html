@@ -19,13 +19,13 @@
                 <button type="submit" class="button upload-submit">Upload</button>
             </form>
         </div>
-        <section class="jobs-dashboard" aria-labelledby="jobs-heading" data-poll-seconds="{{ jobPollSeconds }}">
+        <section class="jobs-dashboard" aria-labelledby="jobs-heading" data-poll-seconds="{{ jobPollSeconds }}" hidden>
             <h2 id="jobs-heading">Upload jobs</h2>
             <p class="jobs-description">Shared queue for all background uploads.</p>
             <p class="jobs-summary" role="status" aria-live="polite">Loading jobs…</p>
             <div class="jobs-list"></div>
         </section>
-        <script src="{{ assetURL("/static/js/upload.js") }}" defer></script>
+        <script src="/static/js/upload.js" defer></script>
     {% else %}
         <div class="block auth">
             <form action="" method="get" class="auth-form">

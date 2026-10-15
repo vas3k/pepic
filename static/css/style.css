@@ -374,7 +374,7 @@ img {
     overflow-wrap: anywhere;
 }
 
-.upload[hidden], .jobs-description[hidden] {
+.upload[hidden], .jobs-description[hidden], .jobs-dashboard[hidden] {
     display: none;
 }
 

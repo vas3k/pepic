@@ -1,14 +1,11 @@
 package template
 
 import (
-	"crypto/sha256"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"path"
 	"path/filepath"
-	"strings"
 
 	"github.com/dustin/go-humanize"
 
@@ -26,7 +23,6 @@ func (t *Renderer) Render(c *echo.Context, w io.Writer, name string, data any) e
 	if !isMap {
 		return errors.New("template context should be a map")
 	}
-	viewContext["assetURL"] = assetURL
 	viewContext["reverse"] = c.Echo().Router().Routes().Reverse
 	viewContext["renderFileTemplate"] = func(text string, file *entity.ProcessingFile) string {
 		tpl, err := pongo2.FromString(text)
@@ -60,12 +56,4 @@ func NewTemplateRenderer(templatesPath string) *Renderer {
 	renderer := new(Renderer)
 	renderer.templates = templates
 	return renderer
-}
-
-func assetURL(url string) string {
-	data, err := os.ReadFile(strings.TrimPrefix(url, "/"))
-	if err != nil {
-		return url
-	}
-	return fmt.Sprintf("%s?v=%x", url, sha256.Sum256(data))
 }

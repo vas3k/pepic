@@ -114,6 +114,7 @@
             summary.textContent = 'Reload the page to start another upload.';
             return;
         }
+        dashboard.hidden = !jobs.some(job => job.state === 'queued' || job.state === 'processing');
         const present = new Set();
         let previous = null;
         for (const job of jobs) {
@@ -218,6 +219,7 @@
         uploading = true;
         const fields = new FormData(form);
         document.querySelector('.upload').hidden = true;
+        dashboard.hidden = false;
         dashboard.querySelector('h2').textContent = 'Your upload';
         dashboard.querySelector('.jobs-description').hidden = true;
         summary.textContent = 'Reload the page to start another upload.';
@@ -269,7 +271,8 @@
     };
     form.addEventListener('submit', event => {
         event.preventDefault();
-        startUpload(Array.from(input.files));
+        if (input.files.length) startUpload(Array.from(input.files));
+        else input.click();
     });
     const dropZone = document.querySelector('.upload');
     dropZone.addEventListener('dragover', event => {
