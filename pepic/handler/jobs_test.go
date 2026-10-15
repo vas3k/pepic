@@ -169,7 +169,7 @@ func TestBackgroundVideo(t *testing.T) {
 	}
 	job := jobRequest(t, e, "/upload/jobs/bytes/", bytes.NewReader(data), "application/octet-stream")
 	done := awaitJob(t, e, job.StatusURL)
-	if done.State != "succeeded" || len(done.Results) != 1 || !strings.HasSuffix(done.Results[0].Filename, ".mp4") {
+	if done.State != "succeeded" || len(done.Results) != 1 || !strings.HasSuffix(done.Results[0].Filename, ".mp4") || done.Results[0].MIME != "video/mp4" {
 		t.Fatalf("video failed: %+v", done)
 	}
 }

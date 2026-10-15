@@ -26,6 +26,7 @@ var ErrTooLarge = errors.New("upload too large")
 var ErrNotFound = errors.New("job not found")
 
 type Result struct {
+	MIME     string `json:"mime,omitempty"`
 	Filename string `json:"filename"`
 	URL      string `json:"url"`
 }

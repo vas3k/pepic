@@ -373,3 +373,40 @@ img {
 .job-files {
     overflow-wrap: anywhere;
 }
+
+.upload[hidden], .jobs-description[hidden] {
+    display: none;
+}
+
+.upload-preview {
+    display: block;
+    width: 100%;
+    max-height: 420px;
+    object-fit: contain;
+    margin: 24px auto;
+    border-radius: 12px;
+}
+
+.job-heading .job-files {
+    min-width: 0;
+}
+
+.job-heading .job-state {
+    flex-shrink: 0;
+}
+
+.upload-video-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    min-height: 160px;
+    margin: 24px 0;
+    border-radius: 12px;
+    background: var(--bg-color);
+    color: var(--text-color);
+}
+
+.upload-video-icon {
+    font-size: 36px;
+}

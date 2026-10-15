@@ -2,14 +2,13 @@
     const form = document.querySelector('.upload-form');
     if (!form) return;
     const input = form.querySelector('.upload-file');
-    const uploadPanel = document.querySelector('.upload-status');
-    const uploadMessage = document.querySelector('.upload-message');
-    const transferProgress = document.querySelector('.upload-progress');
     const dashboard = document.querySelector('.jobs-dashboard');
     const summary = document.querySelector('.jobs-summary');
     const list = document.querySelector('.jobs-list');
     const cards = new Map();
     let uploading = false;
+    const selected = [];
+    const previews = [];
     let refreshing = false;
     let timer;
     let pollSeconds = Number(dashboard.dataset.pollSeconds);
@@ -19,14 +18,6 @@
         node.className = className;
         if (text !== undefined) node.textContent = text;
         return node;
-    };
-    const showUpload = message => {
-        uploadPanel.hidden = false;
-        uploadMessage.textContent = message;
-    };
-    const setUploading = value => {
-        uploading = value;
-        for (const control of form.elements) control.disabled = value;
     };
     const renderJob = job => {
         const card = element('article', 'block job-card');
@@ -86,6 +77,43 @@
         return card;
     };
     const renderJobs = jobs => {
+        if (selected.length) {
+            for (const entry of selected) {
+                const job = jobs.find(job => job.id === entry.id);
+                if (!job) continue;
+                entry.card.dataset.state = job.state;
+                const labels = {queued: 'Queued', processing: 'Processing', succeeded: 'Completed', failed: 'Failed'};
+                entry.status.textContent = labels[job.state] || job.state;
+                if (job.state === 'processing') entry.progress.removeAttribute('value');
+                else entry.progress.value = job.state === 'succeeded' ? 100 : 0;
+                entry.detail.textContent = job.state === 'failed'
+                    ? job.error || 'Processing failed.'
+                    : job.state === 'processing' ? 'Validating and processing…'
+                    : job.state === 'queued' ? 'Waiting for a worker…' : 'Ready';
+                if (job.results.length && !entry.completed) {
+                    entry.completed = true;
+                    const media = job.results[0];
+                    const kind = (media.mime || entry.file.type).split('/')[0];
+                    if (kind === 'image' || kind === 'video') {
+                        const preview = element(kind === 'image' ? 'img' : 'video', 'upload-preview');
+                        preview.src = media.url;
+                        if (kind === 'video') {
+                            preview.controls = true;
+                            preview.preload = 'metadata';
+                            preview.playsInline = true;
+                        } else {
+                            preview.alt = entry.file.name;
+                            preview.decoding = 'async';
+                        }
+                        entry.preview.replaceChildren(preview);
+                    }
+                    const result = renderJob(job);
+                    entry.result.append(...result.querySelectorAll('.job-results, .job-details'));
+                }
+            }
+            summary.textContent = 'Reload the page to start another upload.';
+            return;
+        }
         const present = new Set();
         let previous = null;
         for (const job of jobs) {
@@ -136,52 +164,127 @@
             if (retry) timer = setTimeout(refresh, pollSeconds * 1000);
         }
     };
-    form.addEventListener('submit', event => {
-        event.preventDefault();
-        if (uploading || !input.files.length) return;
-        const data = new FormData(form);
-        const count = input.files.length;
+    const uploadFile = (entry, fields) => new Promise(resolve => {
+        const data = new FormData();
+        for (const [name, value] of fields) {
+            if (!(value instanceof File)) data.append(name, value);
+        }
+        data.append(input.name, entry.file);
         const xhr = new XMLHttpRequest();
-        setUploading(true);
-        transferProgress.hidden = false;
-        transferProgress.max = 100;
-        transferProgress.value = 0;
-        showUpload(`Uploading ${count} ${count === 1 ? 'file' : 'files'}…`);
+        entry.status.textContent = 'Uploading';
+        entry.detail.textContent = 'Sending file…';
         xhr.open('POST', '/upload/jobs/multipart/');
         xhr.setRequestHeader('Accept', 'application/json');
         xhr.upload.addEventListener('progress', event => {
             if (event.lengthComputable) {
                 const percent = Math.round(event.loaded / event.total * 100);
-                transferProgress.value = percent;
-                showUpload(`Uploading ${count} ${count === 1 ? 'file' : 'files'}: ${percent}%`);
+                entry.progress.value = percent;
+                entry.detail.textContent = `Uploading: ${percent}%`;
             } else {
-                transferProgress.removeAttribute('value');
+                entry.progress.removeAttribute('value');
             }
         });
-        xhr.upload.addEventListener('load', () => showUpload('Upload sent. Saving to the queue…'));
+        xhr.upload.addEventListener('load', () => {
+            entry.progress.removeAttribute('value');
+            entry.detail.textContent = 'Saving to the queue…';
+        });
+        const failed = message => {
+            entry.card.dataset.state = 'failed';
+            entry.status.textContent = 'Failed';
+            entry.progress.value = 0;
+            entry.detail.textContent = message;
+        };
         xhr.addEventListener('load', () => {
             let result;
             try { result = JSON.parse(xhr.responseText); } catch (_) {}
             if (xhr.status !== 202 || !result?.id) {
-                showUpload(result?.error?.message || `Upload failed (HTTP ${xhr.status}).`);
+                failed(result?.error?.message || `Upload failed (HTTP ${xhr.status}).`);
             } else {
-                input.value = '';
-                showUpload('Upload queued. You can add more files; results will appear below.');
+                entry.id = result.id;
+                entry.status.textContent = 'Queued';
+                entry.progress.value = 0;
+                entry.detail.textContent = 'Waiting for a worker…';
+                refresh();
             }
-            refresh();
         });
-        const disconnected = () => {
-            showUpload('Upload connection interrupted. Check the shared queue before retrying; the server may have received it.');
-            refresh();
-        };
+        const disconnected = () => failed('Connection interrupted. Reload to check the shared queue before retrying; the server may have received this file.');
         xhr.addEventListener('error', disconnected);
         xhr.addEventListener('abort', disconnected);
-        xhr.addEventListener('loadend', () => {
-            transferProgress.hidden = true;
-            setUploading(false);
-        });
+        xhr.addEventListener('loadend', resolve);
         xhr.send(data);
     });
-    input.addEventListener('change', () => form.requestSubmit());
+    const startUpload = async files => {
+        if (uploading || !files.length) return;
+        uploading = true;
+        const fields = new FormData(form);
+        document.querySelector('.upload').hidden = true;
+        dashboard.querySelector('h2').textContent = 'Your upload';
+        dashboard.querySelector('.jobs-description').hidden = true;
+        summary.textContent = 'Reload the page to start another upload.';
+        list.replaceChildren();
+        cards.clear();
+        for (const file of files) {
+            const card = element('article', 'block job-card');
+            const heading = element('div', 'job-heading');
+            heading.append(element('h3', 'job-files', file.name));
+            const status = element('span', 'job-state', 'Waiting');
+            heading.append(status);
+            card.append(heading);
+            const previewContainer = element('div', 'file-preview');
+            card.append(previewContainer);
+            const kind = file.type.split('/')[0];
+            if (kind === 'image') {
+                const preview = element('img', 'upload-preview');
+                const url = URL.createObjectURL(file);
+                previews.push(url);
+                preview.src = url;
+                preview.alt = file.name;
+                preview.loading = 'lazy';
+                preview.decoding = 'async';
+                preview.addEventListener('error', () => {
+                    preview.replaceWith(element('p', 'job-detail', 'Preview unavailable in this browser.'));
+                }, {once: true});
+                previewContainer.append(preview);
+            } else if (kind === 'video') {
+                const placeholder = element('div', 'upload-video-placeholder');
+                const icon = element('span', 'upload-video-icon', '▶');
+                icon.setAttribute('aria-hidden', 'true');
+                placeholder.append(icon, element('span', '', 'Video'));
+                previewContainer.append(placeholder);
+            } else {
+                previewContainer.append(element('p', 'job-detail', 'Preview unavailable in this browser.'));
+            }
+            const progress = element('progress', 'job-progress');
+            progress.max = 100;
+            progress.value = 0;
+            progress.setAttribute('aria-label', `Upload progress for ${file.name}`);
+            const detail = element('p', 'job-detail', 'Waiting to upload…');
+            detail.setAttribute('role', 'status');
+            const result = element('div', 'upload-result');
+            card.append(progress, detail, result);
+            list.append(card);
+            selected.push({file, card, status, progress, detail, result, preview: previewContainer});
+        }
+        for (const entry of selected) await uploadFile(entry, fields);
+    };
+    form.addEventListener('submit', event => {
+        event.preventDefault();
+        startUpload(Array.from(input.files));
+    });
+    const dropZone = document.querySelector('.upload');
+    dropZone.addEventListener('dragover', event => {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'copy';
+    });
+    dropZone.addEventListener('drop', event => {
+        event.preventDefault();
+        startUpload(Array.from(event.dataTransfer.files));
+    });
+    window.addEventListener('dragover', event => event.preventDefault());
+    window.addEventListener('drop', event => event.preventDefault());
+    window.addEventListener('pagehide', event => {
+        if (!event.persisted) previews.forEach(url => URL.revokeObjectURL(url));
+    });
+    input.addEventListener('change', () => startUpload(Array.from(input.files)));
     refresh();
 })();

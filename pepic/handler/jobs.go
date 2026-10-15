@@ -33,7 +33,7 @@ func (h *PepicHandler) OpenJobs() error {
 		if err != nil {
 			return jobs.Result{}, err
 		}
-		return jobs.Result{Filename: file.Filename, URL: file.Url()}, nil
+		return jobs.Result{Filename: file.Filename, URL: file.Url(), MIME: file.Mime}, nil
 	}, acquireProcessing)
 	return err
 }
