@@ -1,159 +1,99 @@
 package processing
 
 import (
-	"bytes"
 	"errors"
-	"fmt"
-	"image"
-	"image/color"
-	"image/draw"
-	"image/jpeg"
-	_ "image/png"
-	"log"
+	"math"
+	"sync"
 
-	"github.com/h2non/bimg"
+	"github.com/davidbyttow/govips/v2/vips"
 	"github.com/vas3k/pepic/pepic/config"
 	"github.com/vas3k/pepic/pepic/entity"
 	"github.com/vas3k/pepic/pepic/utils"
 )
 
 type ImageBackend interface {
-	AutoRotate(file *entity.ProcessingFile) error
+	Process(file *entity.ProcessingFile, maxLength int, mimeType string) error
 	Resize(file *entity.ProcessingFile, maxLength int) error
-	Convert(file *entity.ProcessingFile, newMimeType string) error
 }
 
-type imageBackend struct {
-}
+type imageBackend struct{}
+
+var startImages = sync.OnceValue(func() error {
+	return vips.Startup(&vips.Config{
+		ConcurrencyLevel: config.App.Safety.ImageThreads,
+		MaxCacheMem:      config.App.Safety.VipsCacheBytes,
+		MaxCacheSize:     config.App.Safety.VipsCacheEntries,
+	})
+})
 
 func NewImageBackend() ImageBackend {
 	return &imageBackend{}
 }
 
-func (i *imageBackend) AutoRotate(file *entity.ProcessingFile) error {
-	log.Printf("Auto-rotate image '%s'", file.Filename)
-	if file.Bytes == nil {
-		return errors.New("file data is empty, try reading it first")
+func loadImage(data []byte) (*vips.ImageRef, error) {
+	if err := startImages(); err != nil {
+		return nil, err
 	}
-
-	img := bimg.NewImage(file.Bytes)
-	rotatedImg, err := img.AutoRotate()
+	image, err := vips.NewImageFromBuffer(data)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	file.Bytes = rotatedImg
-
-	return nil
+	if !validDimensions(image.Width(), image.Height(), config.App.Safety.MaxImagePixels) {
+		image.Close()
+		return nil, ErrInvalidMedia
+	}
+	return image, nil
 }
 
 func (i *imageBackend) Resize(file *entity.ProcessingFile, maxLength int) error {
-	log.Printf("Resizing image '%s' to %d px", file.Filename, maxLength)
-	if file.Bytes == nil {
-		return errors.New("file data is empty, try reading it first")
-	}
-
-	img := bimg.NewImage(file.Bytes)
-	origSize, err := img.Size()
-	if err != nil {
-		return err
-	}
-
-	width, height := utils.FitSize(origSize.Width, origSize.Height, maxLength)
-	log.Printf("Orig width '%d' height %d px", origSize.Width, origSize.Height)
-	resizedImg, err := img.Process(bimg.Options{
-		Width:         width,
-		Height:        height,
-		Embed:         true,
-		StripMetadata: true,
-		Quality:       config.App.Images.JPEGQuality,
-		Compression:   config.App.Images.PNGCompression,
-	})
-	if err != nil {
-		return err
-	}
-
-	file.Bytes = resizedImg
-
-	return nil
+	return i.Process(file, maxLength, file.Mime)
 }
 
-func (i *imageBackend) Convert(file *entity.ProcessingFile, newMimeType string) error {
-	log.Printf("Converting image '%s' to %s", file.Filename, newMimeType)
-	if file.Bytes == nil {
-		return errors.New("file data is empty, try reading it first")
+func (i *imageBackend) Process(file *entity.ProcessingFile, maxLength int, mimeType string) error {
+	if maxLength <= 0 || maxLength > config.App.Safety.MaxDimension {
+		return errors.New("invalid resize dimensions")
 	}
-
-	newImgType, err := i.mimeTypeToImageType(newMimeType)
+	if mimeType == "" || mimeType == "false" {
+		mimeType = file.Mime
+	}
+	canonicalMIME, format, ok := config.App.Media.Format(mimeType)
+	if !ok || format.Encode == nil {
+		return ErrInvalidMedia
+	}
+	image, err := loadImage(file.Bytes)
 	if err != nil {
 		return err
 	}
-
-	img := bimg.NewImage(file.Bytes)
-
-	// fix PNG -> JPG transparency if needed
-	if bimg.DetermineImageType(file.Bytes) == bimg.PNG && newImgType == bimg.JPEG {
-		img = i.fixPNGTransparency(img)
+	defer image.Close()
+	if err := image.AutoRotate(); err != nil {
+		return err
 	}
-
-	convertedImg, err := img.Process(bimg.Options{
-		Type:          newImgType,
-		StripMetadata: true,
-		Quality:       config.App.Images.JPEGQuality,
-		Compression:   config.App.Images.PNGCompression,
-	})
+	scale := math.Min(1, float64(maxLength)/float64(max(image.Width(), image.Height())))
+	if scale < 1 {
+		if err := image.Resize(scale, vips.KernelLanczos3); err != nil {
+			return err
+		}
+	}
+	if format.FlattenAlpha && image.HasAlpha() {
+		if err := image.Flatten(&vips.Color{R: 255, G: 255, B: 255}); err != nil {
+			return err
+		}
+	}
+	if err := image.RemoveMetadata(); err != nil {
+		return err
+	}
+	data, _, err := format.Encode(image, config.ImageEncoding{Quality: config.App.Images.JPEGQuality, Compression: config.App.Images.PNGCompression})
 	if err != nil {
 		return err
 	}
-
-	newExt, _ := utils.ExtensionByMimeType(newMimeType)
-	file.Bytes = convertedImg
-	file.Mime = newMimeType
-	file.Filename = utils.ReplaceExt(file.Filename, newExt)
+	extension, err := utils.ExtensionByMimeType(canonicalMIME)
+	if err != nil {
+		return err
+	}
+	file.Bytes, file.Mime = data, canonicalMIME
+	file.Filename = utils.ReplaceExt(file.Filename, extension)
 	if file.Path != "" {
-		file.Path = utils.ReplaceExt(file.Path, newExt)
+		file.Path = utils.ReplaceExt(file.Path, extension)
 	}
-
 	return nil
-}
-
-func (i imageBackend) fixPNGTransparency(img *bimg.Image) *bimg.Image {
-	// convert to go image because bimg has no drawing features
-	origImg, _, err := image.Decode(bytes.NewReader(img.Image()))
-	if err != nil {
-		return img
-	}
-
-	// draw white square and paste image on top of it
-	newImg := image.NewRGBA(origImg.Bounds())
-	draw.Draw(newImg, newImg.Bounds(), &image.Uniform{color.White}, image.Point{}, draw.Src)
-	draw.Draw(newImg, newImg.Bounds(), origImg, origImg.Bounds().Min, draw.Over)
-
-	// convert back to bytes
-	buf := new(bytes.Buffer)
-	err = jpeg.Encode(buf, newImg, nil)
-	if err != nil {
-		return img
-	}
-	return bimg.NewImage(buf.Bytes())
-}
-
-func (i imageBackend) mimeTypeToImageType(mimeType string) (bimg.ImageType, error) {
-	mapping := map[string]bimg.ImageType{
-		"image/jpeg":  bimg.JPEG,
-		"image/pjpeg": bimg.JPEG,
-		"image/webp":  bimg.WEBP,
-		"image/png":   bimg.PNG,
-		"image/tiff":  bimg.TIFF,
-		"image/gif":   bimg.GIF,
-		"image/svg":   bimg.SVG,
-		"image/heic":  bimg.HEIF,
-		"image/heif":  bimg.HEIF,
-		"image/avif":  bimg.AVIF,
-	}
-	if imageType, ok := mapping[mimeType]; ok {
-		return imageType, nil
-	} else {
-		return bimg.UNKNOWN, fmt.Errorf("'%s' is not supported", mimeType)
-	}
 }

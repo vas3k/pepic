@@ -6,16 +6,13 @@ import (
 	"path"
 	"strconv"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/vas3k/pepic/pepic/config"
 	"github.com/vas3k/pepic/pepic/entity"
+	"github.com/vas3k/pepic/pepic/processing"
 )
 
-const MinLength = 200
-
-// GET /:name
-// Returns originally stored file
-func (h *PepicHandler) GetOriginalFile(c echo.Context) error {
+func (h *PepicHandler) GetOriginalFile(c *echo.Context) error {
 	file, err := h.Storage.GetFile("orig", c.Param("name"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusNotFound, "File not found")
@@ -24,9 +21,7 @@ func (h *PepicHandler) GetOriginalFile(c echo.Context) error {
 	return h.Storage.Proxy(c, file.Path)
 }
 
-// GET /:length/:name
-// Resizes the file, stores and returns it
-func (h *PepicHandler) GetResizedFile(c echo.Context) error {
+func (h *PepicHandler) GetResizedFile(c *echo.Context) error {
 	lengthString := c.Param("length")
 	if lengthString == "full" {
 		return h.GetOriginalFile(c)
@@ -37,21 +32,18 @@ func (h *PepicHandler) GetResizedFile(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Bad 'length' parameter. Need an integer!")
 	}
 
-	// return original image if requested size is bigger
 	if length >= config.App.Images.OriginalLength {
 		return h.GetOriginalFile(c)
 	}
 
-	// do not return too small images
-	if length < MinLength {
-		length = MinLength
+	if length < config.App.Safety.MinResizeLength {
+		length = config.App.Safety.MinResizeLength
 	}
 
-	// resize and store the resized one
 	filename := c.Param("name")
 	file, err := h.resizeFile(filename, length)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err)
+		return err
 	}
 
 	return h.Storage.Proxy(c, file.Path)
@@ -61,20 +53,32 @@ func (h *PepicHandler) resizeFile(filename string, length int) (*entity.Processi
 	resizePath := path.Join("resize", strconv.Itoa(length))
 	file, err := h.Storage.GetFile(resizePath, filename)
 	if err == nil {
-		// resized file already exists, just return it
 		return file, nil
 	}
-	if file == nil {
-		return nil, errors.New("file is empty or corrupted")
+	original, err := h.Storage.GetFile("orig", filename)
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusNotFound, "File not found")
 	}
+	if (original.Processor() == "vips" && !config.App.Images.LiveResize) ||
+		(original.Processor() == "ffmpeg" && !config.App.Videos.LiveResize) {
+		return original, nil
+	}
+	release, err := acquireProcessing()
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 
-	if file.IsImage() {
+	if file.Processor() == "vips" {
 		if config.App.Images.LiveResize {
 			err := h.Storage.ReadFileBytes(file, "orig")
 			if err != nil {
 				return file, err
 			}
 
+			if _, err := processing.ValidateMedia(file.Bytes); err != nil {
+				return nil, err
+			}
 			err = h.Processing.Image.Resize(file, length)
 			if err != nil {
 				return file, err
@@ -88,13 +92,16 @@ func (h *PepicHandler) resizeFile(filename string, length int) (*entity.Processi
 		return file, nil
 	}
 
-	if file.IsVideo() {
+	if file.Processor() == "ffmpeg" {
 		if config.App.Videos.LiveResize {
 			err := h.Storage.ReadFileBytes(file, "orig")
 			if err != nil {
 				return file, err
 			}
 
+			if _, err := processing.ValidateMedia(file.Bytes); err != nil {
+				return nil, err
+			}
 			err = h.Processing.Video.Transcode(file, length)
 			if err != nil {
 				return file, err

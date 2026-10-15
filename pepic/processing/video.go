@@ -1,16 +1,18 @@
 package processing
 
 import (
-	"errors"
+	"context"
 	"fmt"
-	"log"
+	"io"
 	"os"
-	"path"
+	"os/exec"
+	"path/filepath"
+	"strconv"
+	"time"
 
 	"github.com/vas3k/pepic/pepic/config"
 	"github.com/vas3k/pepic/pepic/entity"
 	"github.com/vas3k/pepic/pepic/utils"
-	"github.com/xfrr/goffmpeg/transcoder"
 )
 
 type VideoBackend interface {
@@ -18,152 +20,102 @@ type VideoBackend interface {
 	Convert(file *entity.ProcessingFile, newMimeType string) error
 }
 
-type videoBackend struct {
-}
+type videoBackend struct{}
 
-func NewVideoBackend() VideoBackend {
-	return &videoBackend{}
-}
+func NewVideoBackend() VideoBackend { return &videoBackend{} }
 
 func (v *videoBackend) Transcode(file *entity.ProcessingFile, maxLength int) error {
-	log.Printf("Transcoding video '%s' to %d px", file.Filename, maxLength)
-	if file.Bytes == nil {
-		return errors.New("file data is empty, try reading it first")
-	}
-
-	// save bytes to disc because ffmpeg works with filenames
-	tempOrigFile := path.Join(config.App.Videos.FFmpeg.TempDir, file.Filename)
-	dst, err := os.Create(tempOrigFile)
-	if err != nil {
-		return err
-	}
-	defer dst.Close()
-	defer os.Remove(tempOrigFile)
-
-	_, err = dst.Write(file.Bytes)
-	if err != nil {
-		return err
-	}
-
-	// create temp file output
-	tempTransFile := path.Join(config.App.Videos.FFmpeg.TempDir, fmt.Sprintf("trans_%s", file.Filename))
-	dst, err = os.Create(tempTransFile)
-	if err != nil {
-		return err
-	}
-	defer dst.Close()
-	defer os.Remove(tempTransFile)
-
-	// create and configure video transcoder
-	trans, err := v.initTranscoder(tempOrigFile, tempTransFile)
-	if err != nil {
-		return err
-	}
-
-	// add resize filter
-	trans.MediaFile().SetVideoFilter(fmt.Sprintf("scale=trunc(oh*a/2)*2:%d", maxLength))
-
-	// run transcoding and monitor the process
-	done := v.runTranscoder(trans)
-	err = <-done
-	if err != nil {
-		return err
-	}
-
-	// load transcoded video back to memory and remove temp files (deferred)
-	file.Bytes, err = os.ReadFile(tempTransFile)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return v.process(file, file.Mime, maxLength)
 }
 
-func (v *videoBackend) Convert(file *entity.ProcessingFile, newMimeType string) error {
-	log.Printf("Converting video '%s' to %s", file.Filename, newMimeType)
-	if file.Bytes == nil {
-		return errors.New("file data is empty, try reading it first")
-	}
+func (v *videoBackend) Convert(file *entity.ProcessingFile, mime string) error {
+	return v.process(file, mime, 0)
+}
 
-	// save bytes to disc because ffmpeg works with filenames
-	tempOrigFile := path.Join(config.App.Videos.FFmpeg.TempDir, file.Filename)
-	dst, err := os.Create(tempOrigFile)
+func (v *videoBackend) process(file *entity.ProcessingFile, mime string, length int) error {
+	_, format, ok := config.App.Media.Format(file.Mime)
+	if !ok || format.Processor != "ffmpeg" {
+		return ErrInvalidMedia
+	}
+	canonicalMIME, outputFormat, ok := config.App.Media.Format(mime)
+	if !ok || outputFormat.Processor != "ffmpeg" {
+		return ErrInvalidMedia
+	}
+	ext, err := utils.ExtensionByMimeType(canonicalMIME)
 	if err != nil {
 		return err
 	}
-	defer dst.Close()
-	defer os.Remove(tempOrigFile)
-
-	_, err = dst.Write(file.Bytes)
+	dir, err := os.MkdirTemp(config.App.Videos.FFmpeg.TempDir, "pepic-transcode-*")
 	if err != nil {
 		return err
 	}
-
-	// create temp file output
-	newExt, _ := utils.ExtensionByMimeType(newMimeType)
-	convFilename := utils.ReplaceExt(file.Filename, newExt)
-	tempTransFile := path.Join(config.App.Videos.FFmpeg.TempDir, fmt.Sprintf("conv_%s", convFilename))
-	dst, err = os.Create(tempTransFile)
+	defer os.RemoveAll(dir)
+	input, output := filepath.Join(dir, "input"), filepath.Join(dir, "output"+ext)
+	if err := os.WriteFile(input, file.Bytes, 0600); err != nil {
+		return err
+	}
+	limit, err := config.UploadLimit()
 	if err != nil {
 		return err
 	}
-	defer dst.Close()
-	defer os.Remove(tempTransFile)
-
-	// create and configure video transcoder
-	trans, err := v.initTranscoder(tempOrigFile, tempTransFile)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(config.App.Safety.TranscodeTimeoutSeconds)*time.Second)
+	defer cancel()
+	args := append(mediaInputArgs(format), "-nostdin", "-xerror", "-filter_threads", strconv.Itoa(config.App.Safety.FFmpegThreads))
+	args = append(args,
+		"-i", input,
+		"-map", "0:v:0",
+		"-map", "0:a:0?",
+		"-map_metadata", "-1",
+		"-map_chapters", "-1",
+		"-threads", strconv.Itoa(config.App.Safety.FFmpegThreads),
+		"-t", strconv.Itoa(config.App.Safety.MaxVideoSeconds),
+		"-fs", strconv.FormatInt(limit, 10),
+	)
+	cfg := config.App.Videos.FFmpeg
+	args = append(args,
+		"-c:v", cfg.VideoCodec,
+		"-preset", cfg.Preset,
+		"-crf", strconv.Itoa(cfg.CRF),
+		"-b:v", cfg.VideoBitrate,
+		"-profile:v", cfg.VideoProfile,
+		"-c:a", cfg.AudioCodec,
+		"-b:a", cfg.AudioBitrate,
+		"-bufsize", strconv.Itoa(cfg.BufferSize),
+		"-pix_fmt", cfg.PixFmt,
+	)
+	if outputFormat.UseMovFlags {
+		args = append(args, "-movflags", cfg.MovFlags)
+	}
+	if length > 0 {
+		args = append(args, "-vf", fmt.Sprintf("scale=w='min(%d,iw)':h='min(%d,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2", length, length))
+	}
+	args = append(args, output)
+	if err := exec.CommandContext(ctx, "ffmpeg", args...).Run(); err != nil {
+		return fmt.Errorf("video processing failed: %w", err)
+	}
+	f, err := os.Open(output)
 	if err != nil {
 		return err
 	}
-
-	// run transcoding and monitor the process
-	done := v.runTranscoder(trans)
-	err = <-done
+	defer f.Close()
+	info, err := f.Stat()
 	if err != nil {
 		return err
 	}
-
-	// load transcoded video back to memory and remove temp files (deferred)
-	file.Bytes, err = os.ReadFile(tempTransFile)
+	if info.Size() <= 0 || info.Size() >= limit {
+		return fmt.Errorf("processed video exceeds size limit")
+	}
+	data, err := io.ReadAll(io.LimitReader(f, limit+1))
 	if err != nil {
 		return err
 	}
-
-	file.Mime = newMimeType
-	file.Filename = convFilename
+	if int64(len(data)) > limit {
+		return fmt.Errorf("processed video exceeds size limit")
+	}
+	file.Bytes, file.Mime = data, canonicalMIME
+	file.Filename = utils.ReplaceExt(file.Filename, ext)
 	if file.Path != "" {
-		file.Path = utils.ReplaceExt(file.Path, newExt)
+		file.Path = utils.ReplaceExt(file.Path, ext)
 	}
-
 	return nil
-}
-
-func (v *videoBackend) initTranscoder(inputPath string, outputPath string) (*transcoder.Transcoder, error) {
-	trans := new(transcoder.Transcoder)
-	err := trans.Initialize(inputPath, outputPath)
-	if err != nil {
-		return nil, err
-	}
-
-	trans.MediaFile().SetPreset(config.App.Videos.FFmpeg.Preset)
-	trans.MediaFile().SetCRF(uint32(config.App.Videos.FFmpeg.CRF))
-	trans.MediaFile().SetVideoCodec(config.App.Videos.FFmpeg.VideoCodec)
-	trans.MediaFile().SetVideoBitRate(config.App.Videos.FFmpeg.VideoBitrate)
-	trans.MediaFile().SetVideoProfile(config.App.Videos.FFmpeg.VideoProfile)
-	trans.MediaFile().SetAudioCodec(config.App.Videos.FFmpeg.AudioCodec)
-	trans.MediaFile().SetAudioBitRate(config.App.Videos.FFmpeg.AudioBitrate)
-	trans.MediaFile().SetBufferSize(config.App.Videos.FFmpeg.BufferSize)
-	trans.MediaFile().SetMovFlags(config.App.Videos.FFmpeg.MovFlags)
-	trans.MediaFile().SetPixFmt(config.App.Videos.FFmpeg.PixFmt)
-
-	return trans, nil
-}
-
-func (v *videoBackend) runTranscoder(trans *transcoder.Transcoder) <-chan error {
-	done := trans.Run(true)
-	progress := trans.Output()
-	for msg := range progress {
-		log.Print(msg)
-	}
-	return done
 }

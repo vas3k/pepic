@@ -14,7 +14,7 @@
             </div>
             <form action="/upload/multipart/" method="post" class="upload-form" enctype="multipart/form-data">
                 <input type="hidden" name="code" value="{{ secretCode }}">
-                <input type="file" name="media" class="upload-file" accept="image/*, video/*" onchange="this.form.submit()"
+                <input type="file" name="media" class="upload-file" accept="{{ acceptedMediaTypes }}" onchange="this.form.submit()"
                        multiple>
                 <button type="submit" class="button upload-submit">Upload</button>
             </form>

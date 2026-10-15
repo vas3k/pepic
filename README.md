@@ -4,256 +4,218 @@
   <h1>PEPIC</h1>
 </div>
 
-Pepic is a small self-hosted media proxy that helps me to upload, store, serve and convert pictures and videos on my own servers.
+Pepic is a self-hosted image and video upload, storage, conversion, and resizing service. It uses Go, [libvips](https://www.libvips.org/), and [FFmpeg](https://ffmpeg.org/), with local filesystem storage.
 
-Currently, I use it as a main storage for media files in my [pet-projects](https://github.com/vas3k/vas3k.club) and on [my blog](https://vas3k.blog).
-
-Pepic can upload and optimize media files in-flight to save you money and bandwidth. It's highly recommended to set ip up in combination with Cloudflare CDN for better caching.
-
-Internally it uses [ffmpeg](https://ffmpeg.org/download.html) for videos and [vips](https://libvips.github.io/libvips/install.html) for images, which makes it quite fast and supports many media file formats.
-
-Images: **JPG, PNG, GIF, WEBP, SVG, HEIF, TIFF, AVIF, etc**
-
-Video: **basically everything ffmpeg supports**
-
-Pepic is open source, however it's not meant to be used by anyone. Only if you're brave (like me). Scroll down this README for better alternatives.
-
-
-## Features
-
-- **Local file storage**: Upload files as multipart/form-data or as a simple byte stream and store them to a local directory.
-- **Automatic GIF to video conversion**: Because GIFs suck, they slow down web pages and don't support hardware acceleration.
-- **Image and video transcoding and quality optimization**: Transcode and optimize media files on upload or on-the-fly. If you are doing a public storage, you can pre-set your own quality settings to save disk space and bandwidth.
-- **Dynamic resizing**: Easily resize images just by modifying original URL. You can automatically generate image/video previews on demand without uploading multiple versions of the file.
-- **High performance**: Pepic uses native libraries like `ffmpeg` and `vips` for video and image processing to ensure high performance and fast processing times.
-- **Local and containerized environments**: Designed to run smoothly in both local environments and within Docker containers, making it versatile for development and deployment.
-- **Custom configuration**: Flexible configuration options through [config.yml](etc/pepic/config.yml), allowing adjustments to image size, quality, automatic conversion, templates, etc.
+Uploads are validated on the backend, including when originals are preserved. Client filenames, extensions, and `Content-Type` headers do not determine whether a file is accepted. Both upload endpoints enforce the same media policy and resource limits.
 
 ![](static/images/screenshot1.png)
 
-## 🤖 How to Run
+## Supported files
 
-1. Install `vips` and `ffmpeg` first, as they are two main external dependencies
+The default allowlist is defined in [media_defaults.go](pepic/config/media_defaults.go).
 
-```bash
-brew install vips ffmpeg
-```
+| Media | Accepted formats | Default behavior |
+| --- | --- | --- |
+| Still images | JPEG, PNG, WebP, TIFF, HEIF/HEIC, AVIF | Auto-orient, resize down to the configured longest side, strip metadata, and encode |
+| GIF | Static and animated GIF | Convert to MP4 |
+| Videos | MP4, QuickTime/MOV, WebM, AVI, Ogg video | Convert to MP4 with H.264/AAC and resize |
 
-2. Clone this repo
+Actual decoding and encoding require support in the installed native libraries. The Docker image includes these dependencies. Video containers must contain a decodable video stream; audio-only files, attachment streams, and non-audio/video streams are rejected. Videos with extra metadata/subtitle tracks may therefore need remuxing before upload.
 
-```bash
-git clone git@github.com:vas3k/pepic.git
+SVG, PDF, archives, installers, executables, and other unlisted formats are rejected. FFmpeg supporting a format does **not** automatically allow it in Pepic. Corrupt media and files exceeding the configured dimensions, duration, or stream limits are also rejected.
+
+Setting `images.store_originals` or `videos.store_originals` to `true` preserves that media's bytes, including its metadata, after validation. Conversion and resizing may change encoded bytes between native library releases. Animated/multipage formats handled by libvips are processed as a still image; use original storage when retaining all frames/pages is required.
+
+## Run locally
+
+Install Go 1.27.2, a C compiler, pkg-config, libvips development headers, and FFmpeg including ffprobe. On macOS:
+
+```sh
+brew install go pkg-config vips ffmpeg
+git clone https://github.com/vas3k/pepic.git
 cd pepic
+go run . serve --config ./etc/pepic/config.yml
 ```
 
-3. Run the following command to build and start the app
+Open [localhost:8118](http://localhost:8118). Run from the repository directory so the HTML and static assets can be found. If macOS reports a pkg-config compiler flag error, set `CGO_CFLAGS_ALLOW=-Xpreprocessor`.
 
-```bash
-go run main.go serve --config ./etc/pepic/config.yml
-```
+The bundled configuration has no upload secret for local use. Set `SECRET_CODE` before exposing uploads to other users.
 
-> ⚠️ If you're getting `invalid flag in pkg-config` error, run `brew install pkg-config` and `export CGO_CFLAGS_ALLOW="-Xpreprocessor"`. Then try `go run` again.
+## Configuration
 
-3. Go to [localhost:8118](http://localhost:8118) and enjoy!
+Use [etc/pepic/config.yml](etc/pepic/config.yml) as the complete example. Precedence is **module defaults → YAML → environment variables**. Invalid limits and media policies stop startup. Restart after changing configuration.
 
-## 🐳 Using Docker Compose
+The normal YAML only needs `global`, `storage`, `images`, `videos`, `canonical_extensions`, and optional `meta` templates. Media and safety defaults live in [media_defaults.go](pepic/config/media_defaults.go) and [safety_defaults.go](pepic/config/safety_defaults.go); they do not need to be copied into YAML.
 
-You can find [docker-compose.example.yml](./docker-compose.example.yml) in this repo and adapt it to your own needs. 
+| Setting | Bundled value | Environment variable | Meaning |
+| --- | --- | --- | --- |
+| `global.host` / `global.port` | `0.0.0.0` / `8118` | `HOST` / `PORT` | Listen address |
+| `global.base_url` | `http://0.0.0.0:8118/` | `BASE_URL` | Public URL; keep the trailing slash |
+| `global.secret_code` | empty | `SECRET_CODE` | Shared upload secret; empty allows public uploads |
+| `global.max_upload_size` | `50M` | `MAX_UPLOAD_SIZE` | Whole request and per-file/processed-output limit; positive size required |
+| `global.file_tree_split_chars` | `3` | `FILE_TREE_SPLIT_CHARS` | Storage path layout; preserve for existing uploads |
+| `storage.dir` | `uploads/` | `STORAGE_DIR` | Persistent media directory |
+| `images.store_originals` | `false` | `IMAGE_STORE_ORIGINALS` | Preserve image bytes after validation |
+| `images.original_length` | `1800` | `IMAGE_ORIGINAL_LENGTH` | Maximum image longest side in pixels; no upscaling |
+| `images.auto_convert` | `false` | `IMAGE_AUTO_CONVERT` | Keep format, or use an allowed still-image MIME type |
+| `images.live_resize` | `true` | `IMAGE_LIVE_RESIZE` | Generate cached resized images |
+| `images.jpeg_quality` | `95` | `IMAGE_JPEG_QUALITY` | Quality for image encoders supporting quality, from 1 to 100 |
+| `images.png_compression` | `6` | `IMAGE_PNG_COMPRESSION` | PNG compression 0–9; legacy -1/-2/-3 map to 0/1/9 |
+| `images.gif_convert` | `video/mp4` | `IMAGE_GIF_CONVERT` | GIF conversion target; ignored when image originals are preserved |
+| `videos.store_originals` | `false` | `VIDEO_STORE_ORIGINALS` | Preserve video bytes after validation |
+| `videos.original_length` | `720` | `VIDEO_ORIGINAL_LENGTH` | Maximum video longest side; module fallback is 480 |
+| `videos.live_resize` | `false` | `VIDEO_LIVE_RESIZE` | Generate resized videos; otherwise return originals |
+| `videos.auto_convert` | `video/mp4` | `VIDEO_AUTO_CONVERT` | Video output MIME type, or `false` to keep its container |
 
-1. Get [Docker](https://www.docker.com/get-started) and [Docker Compose](https://www.digitalocean.com/community/tutorial-collections/how-to-install-docker-compose)
+`50M` means 50,000,000 bytes; `MiB` units are also supported. A multipart request's limit includes all files, fields, and framing. Chunked requests are bounded too. Increasing this limit requires reviewing container memory and temporary disk capacity.
 
-2. Download the Docker Compose example file and save it as `docker-compose.yml` on your local machine
+`storage.type` is `fs`; only filesystem storage is implemented. Files are named with the SHA-256 hash of the uploaded bytes and the canonical output extension. `canonical_extensions` preserves stable names such as `.jpg` and is also used by MIME/extension validation. Keep these mappings and the storage layout unchanged when upgrading an existing deployment. Legacy configs without the mapping use compatible module defaults.
 
-```bash
-curl https://raw.githubusercontent.com/vas3k/pepic/master/docker-compose.example.yml -o docker-compose.yml
-```
+FFmpeg encoder options are under `videos.ffmpeg`: `temp_dir`, `preset`, `crf`, `buffer_size`, `video_codec`, `video_bitrate`, `video_profile`, `audio_codec`, `audio_bitrate`, `mov_flags`, and `pix_fmt`. Their environment variables use the `VIDEO_FFMPEG_` prefix and uppercase field names. Defaults target MP4/H.264/AAC. If you change the output container or disable conversion, choose compatible encoders and options; allowing WebM input does not make the H.264 encoder suitable for WebM output.
 
-3. Now run it
+`meta.image_templates`, `meta.video_templates`, and `meta.multi_templates` control copyable snippets in the web interface.
 
-```bash
-docker-compose up
-```
+### Media policy overrides
 
-4. Go to [http://localhost:8118](http://localhost:8118) and try uploading something. You should see uploaded images or videos in the local directory (`./uploads`) after that.
+The format table supplies detection, aliases, canonical extensions, processing, frontend accepted MIME types, and download validation. Change the table in one place when adding support. New native image formats also need their decoder/encoder binding in that table.
 
-
-## 🧶 Usage
-
-### Configuration options
+Optional YAML `media.formats` entries merge into the default table. Setting an entry to `null` removes it. For example, to disallow TIFF:
 
 ```yaml
-global:
-  host: 0.0.0.0
-  port: 8118
-  base_url: "http://0.0.0.0:8118/"  # trailing slash is important
-  secret_code: ""                   # secret word to protect you from strangers (don't use your password here, it's stored as plain text)
-  max_upload_size: "500M"           # number + K, M, G, T or P
-  file_tree_split_chars: 3          # abcde.jpg -> ab/cd/e.jpg (never change this after release!)
-
-storage:
-  type: fs        # only "fs" (file system) is supported for now, but you can code your own storage class
-  dir: uploads/   # relative or absolute path for actual files (back it up!)
-
-images:
-  store_originals: false    # use "true" if you want byte-by-byte match of uploaded files (useful for photo blogs)
-  original_length: 1900     # long side length in px to auto-resize originals (only if store_originals=false)
-  auto_convert: false       # mime type to auto-convert uploaded images ("image/jpeg", "image/png" or false)
-  live_resize: true         # enables special URLs that return resized images (increases storage usage)
-  jpeg_quality: 95          # default quality for any saved jpegs
-  png_compression: 0        # 0 - default, -1 - no compression, -2 - best speed, -3 - best compression (yes, with minus)
-  gif_convert: "video/mp4"  # video format for auto-converting gifs (ignored on store_originals=true)
-
-videos:
-  store_originals: false    # use "true" if you want to store original files (browser compatibility is on you)
-  original_length: 720      # resize uploaded videos (only if store_originals=false)
-  live_resize: false        # turned off by default to save disk space and your cpu (always returns original)
-  auto_convert: "video/mp4" # mime type to auto-convert uploaded images (for example "video/mp4")
-  ffmpeg:
-    temp_dir: "/tmp"        # temp directory for video transcoding
-    preset: "slow"          # ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow, placebo
-    crf: 24                 # quality factor — 0-51, where 0 is lossless, 51 — pixelated shit. 23-28 recommended.
-    buffer_size: 1024000    # other standard ffmpeg params, you can google them
-    video_codec: "libx264"
-    video_bitrate: "1024k"
-    video_profile: "main"
-    audio_codec: "aac"
-    audio_bitrate: "128k"
-    mov_flags: "+faststart"
-    pix_fmt: "yuv420p"
-
-meta:  # optional, only if you use web interface
-  image_templates:  # add your custom templates here for easier copy-paste
-    - title: "URL"
-      template: "{{ file.Url }}"
-    - title: "Simple Markdown"
-      template: "![]({{ file.Url }})"
-  video_templates:
-    - title: "URL"
-      template: "{{ file.Url }}"
-    - title: "Simple Markdown"
-      template: "![]({{ file.Url }})"
-  multi_templates:
-    - title: "2 in a row"
-      template: "{% for file in files %}![]({{ file.Url }}) {% endfor %}"
-
+media:
+  formats:
+    image/tiff: null
 ```
 
-### Resizing images on demand
+Removing a format also prevents serving existing files of that type. Keep conversion targets in the allowed table. Changing policy does not scan or delete files already on disk.
 
-If your image URL looks like this: **`https://imgs.com/file.jpg`**
+### Resource limits
 
-Add /500/ to its URL to get 500px (on the long side) version: **`https://imgs.com/500/file.jpg`**
+The defaults are:
 
-Works only if `live_resize` option is set to `true`. If `live_resize=false` — it returns the original version. Same for video transcoding (where it's off by default).
+| Guard | Default |
+| --- | --- |
+| Concurrent upload/resize jobs | 2; excess work gets HTTP 503 |
+| Files per multipart request | 10 |
+| Multipart memory before spilling to temporary files | 1 MiB |
+| Still-image pixels | 40,000,000 |
+| Video/GIF frame pixels | 8,294,400 |
+| Maximum width or height | 16,384 pixels |
+| Minimum requested resize length | 200 pixels |
+| Video duration | 600 seconds |
+| Total streams / video streams | 8 / 1 |
+| FFprobe / full video decode / transcode deadline | 15 / 30 / 120 seconds |
+| FFprobe output | 64 KiB |
+| FFmpeg maximum single allocation | 64 MiB |
+| Native worker threads per job | 1 |
+| libvips cache memory / entries | 32 MiB / 0 |
+| HTTP header / read / write / idle timeout | 10 / 120 / 300 / 60 seconds |
+| HTTP header size | 32 KiB |
 
-> ⚠️ **Note:** Each resized version is saved as a separate file (with the same hash). When the same version of the file is requested again, Pepic just read it from disk and does not waste CPU time resizing it again. However, if you have many resized versions stored, this can eat quite a bit of disk space. Be careful.
+Override specific fields through an optional `safety` mapping when necessary; field names are in [limits.go](pepic/config/limits.go). For example, `safety.max_concurrent_jobs` controls concurrency. These fields have no environment-variable bindings.
 
+FFmpeg uses isolated temporary directories, local-file protocols, and disabled external MOV references. Storage uses confined filesystem access and atomic replacement. Downloads include `nosniff` and restrictive content-security headers.
 
-### Converting file formats on demand
+These guards reduce resource exhaustion risks, but native decoding and its allocations run outside Go's memory manager. A libvips cache limit or FFmpeg single-allocation limit is **not** a process memory limit. Use container/cgroup limits for total memory, CPU, and processes, and cap temporary storage. Image decoding has no separate killable subprocess deadline. Monitor persistent disk space and apply quotas and proxy rate limits: originals and resized variants accumulate on disk.
 
-// Not implemented yet, sorry... PRs are welcome
+## HTTP API and resizing
 
+Upload a byte stream:
 
-### GIF to video conversion
-
-Because GIFs are terrible, Pepic automatically converts them to mp4 videos by default. You can change it to any other format you like using `gif_convert` setting in `config.yml`.
-
-You can disable this behavior only if you set the `store_originals=true` flag, then GIF files will be saved "as is".
-
-![](static/images/screenshot2.png)
-
-
-## 🚢 Production Deployment
-
-> ⚠️ If you plan to host anything bigger than a blog, always put Pepic behind a CDN. CloudFlare offers a free one if you don't hate big corporations :D
-
-Let's say, you want to host it on `https://media.mydomain.org`
-
-1. Modify `etc/pepic/config.yml` to your taste
-
-```yaml
-global:
-  host: 0.0.0.0 
-  port: 8118  # internal host and port, leave it as it is
-  base_url: "https://media.mydomain.org"
-  secret_code: "secretpass"
-  max_upload_size: "500M"
+```sh
+curl -H 'Accept: application/json' --data-binary @photo.jpg \
+  'http://localhost:8118/upload/bytes/?code=YOUR_SECRET'
 ```
 
-2. Build and run production version of the Docker container
+Upload multipart files:
 
-Don't forget to mount upload volume to store files on host (or you can lose those files when the container is killed).
-
-```bash
-docker run -p 8118:8118 -v /host/dir/uploads:/app/uploads --restart=unless-stopped $(docker build -q .)
+```sh
+curl -H 'Accept: application/json' -F 'code=YOUR_SECRET' \
+  -F 'media=@photo.jpg' -F 'media=@clip.mp4' \
+  http://localhost:8118/upload/multipart/
 ```
 
-If you prefer docker-compose, you can use it too. Check out the included [docker-compose.example.yml](docker-compose.example.yml). 
-You can easily transform it into your favourite k8s config or whatever is fashionable this summer. 
+JSON clients receive HTTP 201 and `{"uploaded":["https://media.example/<hash>.jpg"]}`. Browser uploads redirect to `/meta/<filename>` (comma-separated filenames for batches). A valid secret also sets an HttpOnly, SameSite cookie, marked Secure when the public URL uses HTTPS. Downloads remain public. Avoid logging query strings because the `code` parameter contains the upload secret.
 
-> 👍 Don't forget to periodically backup the `/host/dir/uploads` directory just in case :)
+Malformed requests return 400, invalid/missing upload secrets 401, oversized uploads 413, unsupported/corrupt media 415, and exhausted processing capacity 503. Batches are sequential, not transactional: earlier files may remain stored if a later file fails.
 
-3. Use nginx, traefik, k8s or your other favourite proxy
+- `/<filename>` and `/full/<filename>` serve the stored original.
+- `/500/<filename>` generates and caches a version with a longest side of at most 500 pixels.
+- When live resizing is disabled for that processor, the original is returned.
+- Cached variants are served without taking a processing slot. Missing files return 404.
 
-Just proxy all calls from the domain (media.mydomain.org) to Pepic backend (0.0.0.0:8118). Don't forget to set `max file size` and `proxy timeot` directives to avoid gateway errors on big files (especially videos).
+Keep `images.original_length` consistent with existing URLs: requests at or above that threshold return the original. GIF resizing follows the FFmpeg/video resize setting. Conversion through a URL extension is not implemented.
 
-Here's an example for nginx:
+## Production deployment
+
+Build and test the version you intend to deploy:
+
+```sh
+docker build --pull --target test -t pepic-tests .
+docker build -t pepic:local .
+```
+
+The runtime image runs as UID/GID 1000. Mount a persistent uploads directory writable by that UID, or supply your existing service UID/GID. Back up that directory and your configuration before upgrading.
+
+[docker-compose.example.yml](docker-compose.example.yml) includes a read-only root filesystem, bounded temporary storage, CPU/memory/process limits, dropped capabilities, and a localhost-only published port. To use the published image:
+
+```sh
+cp docker-compose.example.yml docker-compose.yml
+mkdir -p uploads
+export SECRET_CODE='replace-with-a-long-random-secret'
+export BASE_URL='https://media.example/'
+export PEPIC_UID="$(id -u)"
+export PEPIC_GID="$(id -g)"
+docker compose pull
+docker compose up -d
+```
+
+Use a dedicated non-root service account in production. Set `GITHUB_SHA` to a published commit tag to select an immutable release rather than `latest`. For a local build, change the Compose `image` to `pepic:local` and omit `pull`. To override YAML, mount your configuration read-only at `/etc/pepic/config.yml`; environment variables still take precedence.
+
+Terminate HTTPS at your reverse proxy and forward to `127.0.0.1:8118`. Set request-body limits and timeouts consistently with Pepic. For nginx, inside your TLS-enabled server block:
 
 ```nginx
-server {
-    listen 80;
-    server_name media.mydomain.org;
+client_max_body_size 50m;
 
-    client_max_body_size 500M;
-    real_ip_header X-Real-IP;
-
-    location / {
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-
-        proxy_read_timeout 300;
-        proxy_connect_timeout 300;
-        proxy_send_timeout 300;
-        send_timeout 300;
-
-        proxy_set_header Host $http_host;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_redirect off;
-        proxy_buffering off;
-
-        proxy_pass http://0.0.0.0:8118;
-    }
+location / {
+    proxy_pass http://127.0.0.1:8118;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 300s;
+    proxy_send_timeout 300s;
 }
 ```
 
-## 😍 Contributions
+Nginx's size units differ from Pepic's decimal `M`; Pepic remains authoritative. Add rate limits at the proxy, and use a dedicated media origin. A CDN can cache public media; do not cache upload responses or authenticated HTML. Preserve upload bodies and byte-range headers through the proxy.
 
-Contributions are welcome.  
+### Upgrade checklist
 
-Open an [Issue](https://github.com/vas3k/vas3k.club/issues) if you want to report a bug or propose an idea.
+- Preserve `STORAGE_DIR`, `FILE_TREE_SPLIT_CHARS`, canonical extensions, and the public base URL. Check volume write permissions under the new non-root runtime.
+- The bundled upload cap is now **50M**, previously 500M. Existing explicit YAML/environment limits remain effective. Oversized historical originals can still be downloaded, but new resizing is subject to current limits.
+- SVG and arbitrary FFmpeg formats are no longer allowed. Audit earlier uploads and remove unwanted files separately; this release does not delete stored data. Purge any unwanted cached files from your CDN too.
+- Test representative photos, phone videos, animated GIFs, preserved originals, existing URLs, authentication, and resized URLs with your actual configuration.
+- Keep the previous image and configuration for rollback; there is no storage migration. New encoded outputs may differ, and cached variants are not regenerated automatically.
+- Review monitoring for 413/415/503 responses, decoder failures, memory pressure, and disk growth before raising limits.
 
-## ✅ TODO
+## Tests and security checks
 
-- [ ] Tests :D
-- [ ] Upload by URL
-- [ ] Crop, rotate and other useful transformations (face blur? pre-loader generator?)
-- [ ] Live conversion by changing file's extension 
-- [ ] Set format and media quality during the upload (using GET/POST params?)
+```sh
+go test -race ./...
+go vet ./...
+go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+```
 
+Native development dependencies and FFmpeg must be installed to run the full suite. The Docker `test` target provides them. Tests cover direct/multipart upload validation, disguised files, truncation, size/pixel/concurrency limits, real media decoding, conversion, canonical filenames, configuration precedence, storage confinement, authentication, downloads, and resizing.
 
-## 🤔 Alternatives
+CI tests pull requests and runs tests plus the Go vulnerability scan before publishing images for pushes to `master`. It publishes both `latest` and commit-SHA tags using `GITHUB_TOKEN`; the repository must have permission to write its GHCR package. No registry personal access token is required.
 
-After reading all this, you probably realized how bad it is and looking for other alternatives. Here's my recommendations:
+Go vulnerability scanning does not cover native OS libraries. Scan the final runtime image separately, for example with `trivy image --scanners vuln pepic:local`, and rebuild with updated packages. A clean scan means no known findings in that scanner's database at scan time; it is not proof of no vulnerabilities or protection against malicious content embedded in otherwise valid media. Keep Go, native decoders, OS packages, and the deployment host patched.
 
-- [imgproxy](https://github.com/imgproxy/imgproxy)
-- [imaginary](https://github.com/h2non/imaginary)
-- [flyimg](https://github.com/flyimg/flyimg)
+## Contributions and license
 
+Report bugs and proposals in [Pepic issues](https://github.com/vas3k/pepic/issues). Upload by URL, cropping, and live format conversion are not implemented.
 
-## 👩‍💼 License 
+Alternatives include [imgproxy](https://github.com/imgproxy/imgproxy), [imaginary](https://github.com/h2non/imaginary), and [flyimg](https://github.com/flyimg/flyimg).
 
-It's [MIT](LICENSE).
-
-Contact me if you have any questions — [me@vas3k.ru](mailto:me@vas3k.ru).
-
-❤️
+Licensed under [MIT](LICENSE). Contact: [me@vas3k.ru](mailto:me@vas3k.ru).

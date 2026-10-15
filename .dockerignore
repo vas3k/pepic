@@ -1,0 +1,10 @@
+.git
+.github
+.idea
+.DS_Store
+uploads
+.env
+.env.*
+*.tar
+*.out
+*.test

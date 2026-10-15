@@ -2,14 +2,15 @@ package template
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"path"
 	"path/filepath"
 
-	"github.com/flosch/pongo2"
-	"github.com/labstack/echo/v4"
+	"github.com/dustin/go-humanize"
+
+	"github.com/flosch/pongo2/v6"
+	"github.com/labstack/echo/v5"
 	"github.com/vas3k/pepic/pepic/entity"
 )
 
@@ -17,12 +18,12 @@ type Renderer struct {
 	templates map[string]*pongo2.Template
 }
 
-func (t *Renderer) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
-	viewContext, isMap := data.(map[string]interface{})
+func (t *Renderer) Render(c *echo.Context, w io.Writer, name string, data any) error {
+	viewContext, isMap := data.(map[string]any)
 	if !isMap {
 		return errors.New("template context should be a map")
 	}
-	viewContext["reverse"] = c.Echo().Reverse
+	viewContext["reverse"] = c.Echo().Router().Routes().Reverse
 	viewContext["renderFileTemplate"] = func(text string, file *entity.ProcessingFile) string {
 		tpl, err := pongo2.FromString(text)
 		if err != nil {
@@ -39,19 +40,7 @@ func (t *Renderer) Render(w io.Writer, name string, data interface{}, c echo.Con
 		result, _ := tpl.Execute(pongo2.Context{"files": files})
 		return result
 	}
-	viewContext["bytesHumanize"] = func(b int64) string {
-		const unit = 1000
-		if b < unit {
-			return fmt.Sprintf("%d B", b)
-		}
-		div, exp := int64(unit), 0
-		for n := b / unit; n >= unit; n /= unit {
-			div *= unit
-			exp++
-		}
-		return fmt.Sprintf("%.1f %cB",
-			float64(b)/float64(div), "kMGTPE"[exp])
-	}
+	viewContext["bytesHumanize"] = func(size int64) string { return humanize.Bytes(uint64(max(size, 0))) }
 	return t.templates[name].ExecuteWriter(viewContext, w)
 }
 

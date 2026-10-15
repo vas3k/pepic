@@ -3,8 +3,8 @@ package utils
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"log"
-	"mime"
 	"path"
 	"strings"
 
@@ -12,29 +12,16 @@ import (
 	"github.com/vas3k/pepic/pepic/entity"
 )
 
-var canonicalExtensions = map[string]string{
-	".jpeg": ".jpg",
-	".jpe":  ".jpg",
-	".jfif": ".jpg",
-	".qt":   ".mov",
-	".moov": ".mov",
-	".f4v":  ".mp4",
-}
-
 func ExtensionByMimeType(mimeType string) (string, error) {
-	exts, err := mime.ExtensionsByType(mimeType)
-	if err != nil {
-		return "", err
+	_, format, ok := config.App.Media.Format(mimeType)
+	if !ok {
+		return "", fmt.Errorf("unsupported media type %q", mimeType)
 	}
-
-	var ext string
-	if val, ok := canonicalExtensions[exts[0]]; ok {
-		ext = val
-	} else {
-		ext = exts[0]
+	canonicalExtensions := config.App.CanonicalExtensions
+	if extension, ok := canonicalExtensions[format.Extension]; ok {
+		return extension, nil
 	}
-
-	return ext, nil
+	return format.Extension, nil
 }
 
 func SplitFileNameNGrams(filename string, n int, stop int) string {

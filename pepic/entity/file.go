@@ -1,8 +1,6 @@
 package entity
 
 import (
-	"strings"
-
 	"github.com/vas3k/pepic/pepic/config"
 )
 
@@ -18,14 +16,22 @@ func (p *ProcessingFile) Url() string {
 	return config.App.Global.BaseUrl + p.Filename
 }
 
-func (p *ProcessingFile) IsGIF() bool {
-	return p.Mime == "image/gif"
+func (p *ProcessingFile) IsAnimated() bool {
+	_, format, ok := config.App.Media.Format(p.Mime)
+	return ok && format.Animated
 }
 
 func (p *ProcessingFile) IsImage() bool {
-	return strings.HasPrefix(p.Mime, "image/")
+	_, format, ok := config.App.Media.Format(p.Mime)
+	return ok && format.Kind == "image"
 }
 
 func (p *ProcessingFile) IsVideo() bool {
-	return strings.HasPrefix(p.Mime, "video/")
+	_, format, ok := config.App.Media.Format(p.Mime)
+	return ok && format.Kind == "video"
+}
+
+func (p *ProcessingFile) Processor() string {
+	_, format, _ := config.App.Media.Format(p.Mime)
+	return format.Processor
 }

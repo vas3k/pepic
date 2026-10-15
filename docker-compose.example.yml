@@ -1,20 +1,29 @@
-version: "3.8"
 services:
   app:
     image: ghcr.io/vas3k/pepic:${GITHUB_SHA:-latest}
-    environment: # check out pepic/config/app.go for more env variables
-      - BASE_URL=https://i.vas3k.ru/
-      - STORAGE_DIR=/uploads
-      - SECRET_CODE=wowsosecret
-      - IMAGE_ORIGINAL_LENGTH=1400
-      - MAX_UPLOAD_SIZE=100M
+    environment:
+      BASE_URL: ${BASE_URL:-http://localhost:8118/}
+      STORAGE_DIR: /uploads
+      SECRET_CODE: ${SECRET_CODE:?Set SECRET_CODE before starting Pepic}
+      MAX_UPLOAD_SIZE: ${MAX_UPLOAD_SIZE:-50M}
     volumes:
       - ./uploads:/uploads
     ports:
-      - 8118:8118
-    user: "1000" # set your real uid (by default only root can read the uploaded files)
+      - "127.0.0.1:8118:8118"
+    user: "${PEPIC_UID:-1000}:${PEPIC_GID:-1000}"
+    read_only: true
+    tmpfs:
+      - /tmp:size=512m,mode=1777
+    mem_limit: 2g
+    cpus: 2
+    pids_limit: 128
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
     logging:
-      driver: "json-file"
+      driver: json-file
       options:
-        max-size: "100M"
+        max-size: 10m
+        max-file: "3"

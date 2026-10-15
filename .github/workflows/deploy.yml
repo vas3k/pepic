@@ -1,18 +1,34 @@
-name: Docker image
+name: Test and publish image
 
 on:
   push:
     branches:
       - master
+  pull_request:
+
+permissions:
+  contents: read
 
 jobs:
   build:
-    name: Build image
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v7.0.1
         with:
-          ref: 'master'
-      - run: docker login ghcr.io -u $GITHUB_ACTOR -p ${{ secrets.TOKEN }}
-      - run: docker build -t ghcr.io/$GITHUB_ACTOR/pepic:latest .
-      - run: docker image push ghcr.io/$GITHUB_ACTOR/pepic:latest
+          persist-credentials: false
+      - run: docker build --pull --target test -t pepic-test .
+      - run: docker run --rm --entrypoint sh pepic-test -c 'go install golang.org/x/vuln/cmd/govulncheck@latest && /go/bin/govulncheck ./...'
+      - run: docker build -t ghcr.io/${{ github.repository }}:latest -t ghcr.io/${{ github.repository }}:${{ github.sha }} .
+      - uses: docker/login-action@v4.6.0
+        if: github.event_name == 'push'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - if: github.event_name == 'push'
+        run: |
+          docker push ghcr.io/${{ github.repository }}:${{ github.sha }}
+          docker push ghcr.io/${{ github.repository }}:latest

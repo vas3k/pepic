@@ -1,15 +1,16 @@
 package handler
 
 import (
-	"io"
+	"errors"
 	"log"
 	"mime/multipart"
 	"net/http"
 	"strings"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/vas3k/pepic/pepic/config"
 	"github.com/vas3k/pepic/pepic/entity"
+	"github.com/vas3k/pepic/pepic/processing"
 	"github.com/vas3k/pepic/pepic/utils"
 )
 
@@ -18,18 +19,29 @@ type UploadResult struct {
 	Url      string `json:"url"`
 }
 
-// POST /upload/multipart/
-// Handles multipart upload
-func (h *PepicHandler) UploadMultipart(c echo.Context) error {
+func (h *PepicHandler) UploadMultipart(c *echo.Context) error {
+	release, err := limitUpload(c)
+	if err != nil {
+		return err
+	}
+	defer release()
 	if _, err := h.checkSecretCode(c); err != nil {
+		var httpError *echo.HTTPError
+		if errors.As(err, &httpError) {
+			return httpError
+		}
 		return echo.NewHTTPError(http.StatusUnauthorized, "Secret code required")
 	}
 
-	form, err := c.MultipartForm()
+	err = c.Request().ParseMultipartForm(config.App.Safety.MultipartMemoryBytes)
+	form := c.Request().MultipartForm
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err)
+		return uploadReadError(err)
 	}
 
+	if len(form.File["media"]) > config.App.Safety.MaxUploadFiles {
+		return echo.NewHTTPError(400, "Too many files")
+	}
 	var uploaded []UploadResult
 
 	for _, multipartHeader := range form.File["media"] {
@@ -37,12 +49,12 @@ func (h *PepicHandler) UploadMultipart(c echo.Context) error {
 
 		bytes, err := multipartToBytes(multipartHeader)
 		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, err)
+			return err
 		}
 
 		result, err := h.uploadBytes(multipartHeader.Filename, bytes)
 		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, err)
+			return err
 		}
 
 		uploaded = append(uploaded, UploadResult{
@@ -58,34 +70,53 @@ func (h *PepicHandler) UploadMultipart(c echo.Context) error {
 	return renderUploadResults(uploaded, c)
 }
 
-// POST /upload/bytes/
-// Handles raw bytes upload from body
-func (h *PepicHandler) UploadBodyBytes(c echo.Context) error {
+func (h *PepicHandler) UploadBodyBytes(c *echo.Context) error {
+	release, err := limitUpload(c)
+	if err != nil {
+		return err
+	}
+	defer release()
 	if _, err := h.checkSecretCode(c); err != nil {
+		var httpError *echo.HTTPError
+		if errors.As(err, &httpError) {
+			return httpError
+		}
 		return echo.NewHTTPError(http.StatusUnauthorized, "Secret code required")
 	}
 
-	var bytes []byte
-	if c.Request().Body != nil {
-		bytes, _ = io.ReadAll(c.Request().Body)
+	bytes, err := readUpload(c.Request().Body)
+	if err != nil {
+		return err
 	}
 
 	result, err := h.uploadBytes("", bytes)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err)
+		return err
 	}
 
 	return renderUploadResults([]UploadResult{
-		{Url: "/" + result.Filename},
+		{Filename: result.Filename, Url: result.Url()},
 	}, c)
 }
 
 func (h *PepicHandler) uploadBytes(filename string, bytes []byte) (*entity.ProcessingFile, error) {
-	var err error
-
+	limit, err := config.UploadLimit()
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(bytes)) > limit {
+		return nil, echo.NewHTTPError(413, "Upload too large")
+	}
+	mime, err := processing.ValidateMedia(bytes)
+	if err != nil {
+		if errors.Is(err, processing.ErrInvalidMedia) {
+			return nil, echo.NewHTTPError(415, "Unsupported, corrupt, or oversized media")
+		}
+		return nil, err
+	}
 	file := &entity.ProcessingFile{
 		Filename: filename,
-		Mime:     utils.DetectMimeType(filename, bytes),
+		Mime:     mime,
 		Bytes:    bytes,
 	}
 
@@ -98,53 +129,40 @@ func (h *PepicHandler) uploadBytes(filename string, bytes []byte) (*entity.Proce
 
 	file.Filename = hashedFilename
 
-	if !config.App.Images.StoreOriginals {
-		if file.IsGIF() {
-			log.Printf("Converting GIF to video...")
+	if (file.IsVideo() && !config.App.Videos.StoreOriginals) || (!file.IsVideo() && !config.App.Images.StoreOriginals) {
+		if file.IsAnimated() {
+			log.Printf("Converting animated image to video...")
 			err = h.Processing.Video.Convert(file, config.App.Images.GIFConvert)
 			if err != nil {
 				return file, err
 			}
 		}
 
-		if file.IsVideo() || file.IsGIF() {
+		if file.Processor() == "ffmpeg" {
 			log.Printf("Processing video...")
 
-			err = h.Processing.Video.Transcode(file, config.App.Videos.OriginalLength)
-			if err != nil {
-				return file, err
-			}
-
-			if config.App.Videos.AutoConvert != "false" {
-				err = h.Processing.Video.Convert(file, config.App.Videos.AutoConvert)
-				if err != nil {
+			if config.App.Videos.AutoConvert != "false" && config.App.Videos.AutoConvert != file.Mime {
+				if err = h.Processing.Video.Convert(file, config.App.Videos.AutoConvert); err != nil {
 					return file, err
 				}
 			}
-		}
-
-		if file.IsImage() {
-			log.Printf("Processing image...")
-
-			err = h.Processing.Image.AutoRotate(file)
-			if err != nil {
+			if err = h.Processing.Video.Transcode(file, config.App.Videos.OriginalLength); err != nil {
 				return file, err
 			}
 
-			err = h.Processing.Image.Resize(file, config.App.Images.OriginalLength)
-			if err != nil {
+		}
+
+		if file.Processor() == "vips" {
+			if err := h.Processing.Image.Process(file, config.App.Images.OriginalLength, config.App.Images.AutoConvert); err != nil {
 				return file, err
 			}
-
-			if config.App.Images.AutoConvert != "false" {
-				err := h.Processing.Image.Convert(file, config.App.Images.AutoConvert)
-				if err != nil {
-					return file, err
-				}
-			}
 		}
+
 	}
 
+	if int64(len(file.Bytes)) > limit {
+		return nil, echo.NewHTTPError(413, "Processed media too large")
+	}
 	err = h.Storage.StoreFile(file, "orig")
 	if err != nil {
 		return file, err
@@ -159,24 +177,22 @@ func multipartToBytes(multipartFile *multipart.FileHeader) ([]byte, error) {
 		return nil, err
 	}
 	defer src.Close()
-	return io.ReadAll(src)
+	return readUpload(src)
 }
 
-func renderUploadResults(results []UploadResult, c echo.Context) error {
+func renderUploadResults(results []UploadResult, c *echo.Context) error {
 	accept := c.Request().Header.Get("Accept")
 
-	// on json upload - return structured results
 	if strings.HasPrefix(accept, "application/json") {
 		var urls []string
 		for _, result := range results {
 			urls = append(urls, result.Url)
 		}
-		return c.JSON(http.StatusCreated, map[string]interface{}{
+		return c.JSON(http.StatusCreated, map[string]any{
 			"uploaded": urls,
 		})
 	}
 
-	// on simple html upload - redirect to meta page
 	var filenames []string
 	for _, result := range results {
 		filenames = append(filenames, result.Filename)

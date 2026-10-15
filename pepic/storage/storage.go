@@ -3,27 +3,31 @@ package storage
 import (
 	"errors"
 	"log"
-	"mime"
 	"path"
+	"regexp"
+	"strings"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
+	"github.com/vas3k/pepic/pepic/config"
 	"github.com/vas3k/pepic/pepic/entity"
 	"github.com/vas3k/pepic/pepic/utils"
 )
+
+var mediaHash = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
 type Backend interface {
 	PutObject(objectName string, data []byte) (string, error)
 	GetObject(objectName string) ([]byte, error)
 	Size(objectName string) int64
 	IsExists(objectName string) bool
-	Proxy(c echo.Context, objectName string) error
+	Proxy(c *echo.Context, objectName string) error
 }
 
 type Storage interface {
 	GetFile(directory string, filename string) (*entity.ProcessingFile, error)
 	ReadFileBytes(file *entity.ProcessingFile, directories ...string) error
 	StoreFile(file *entity.ProcessingFile, directories ...string) error
-	Proxy(c echo.Context, objectName string) error
+	Proxy(c *echo.Context, objectName string) error
 }
 
 type storage struct {
@@ -31,12 +35,17 @@ type storage struct {
 }
 
 func (s *storage) GetFile(directory string, filename string) (*entity.ProcessingFile, error) {
+	extension := path.Ext(filename)
+	mimeType, _, allowed := config.App.Media.FormatByExtension(extension)
+	if !allowed || !mediaHash.MatchString(strings.TrimSuffix(filename, extension)) {
+		return nil, errors.New("invalid media filename")
+	}
 	canonicalFilename := utils.CanonizeFileName(filename)
 	filePath := path.Join(directory, canonicalFilename)
 	file := &entity.ProcessingFile{
 		Filename: filename,
 		Path:     filePath,
-		Mime:     mime.TypeByExtension(path.Ext(canonicalFilename)),
+		Mime:     mimeType,
 	}
 
 	if !s.Backend.IsExists(filePath) {
@@ -58,7 +67,7 @@ func (s *storage) ReadFileBytes(file *entity.ProcessingFile, directories ...stri
 
 	data, err := s.Backend.GetObject(canonicalPath)
 	if err != nil {
-		log.Fatalf("Error getting file '%s' from storage: %s", canonicalPath, err)
+		log.Printf("Error getting file '%s' from storage: %s", canonicalPath, err)
 		return err
 	}
 
@@ -77,7 +86,7 @@ func (s *storage) StoreFile(file *entity.ProcessingFile, directories ...string) 
 
 	_, err := s.Backend.PutObject(canonicalPath, file.Bytes)
 	if err != nil {
-		log.Fatalf("Error writing file '%s' to storage: %s", canonicalPath, err)
+		log.Printf("Error writing file '%s' to storage: %s", canonicalPath, err)
 		return err
 	}
 
@@ -86,7 +95,7 @@ func (s *storage) StoreFile(file *entity.ProcessingFile, directories ...string) 
 	return nil
 }
 
-func (s *storage) Proxy(c echo.Context, objectName string) error {
+func (s *storage) Proxy(c *echo.Context, objectName string) error {
 	return s.Backend.Proxy(c, objectName)
 }
 

@@ -3,9 +3,10 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/vas3k/pepic/pepic/config"
 	"github.com/vas3k/pepic/pepic/processing"
 	"github.com/vas3k/pepic/pepic/storage"
@@ -17,21 +18,20 @@ type PepicHandler struct {
 }
 
 const SecretCodeKey = "code"
-const SecretCodeCookieTTL = 30 * 24 * time.Hour
 
-// Auth for poor people
-// We simply store secret code in http-only cookies. Works for us.
-// You'd better think about extra protection layer on top.
-// API gateway or nginx + basic auth will suffice.
-func (h *PepicHandler) checkSecretCode(c echo.Context) (string, error) {
+func (h *PepicHandler) checkSecretCode(c *echo.Context) (string, error) {
 	var code string
 
-	// ignore code check if it's not configured
 	if config.App.Global.SecretCode != "" {
 		cookie, err := c.Cookie(SecretCodeKey)
 		if err != nil || cookie.Value == "" {
 			code = c.QueryParam(SecretCodeKey)
 			if code == "" {
+				if strings.HasPrefix(c.Request().Header.Get(echo.HeaderContentType), echo.MIMEMultipartForm) {
+					if err := c.Request().ParseMultipartForm(config.App.Safety.MultipartMemoryBytes); err != nil {
+						return "", uploadReadError(err)
+					}
+				}
 				code = c.FormValue(SecretCodeKey)
 			}
 		} else {
@@ -45,8 +45,11 @@ func (h *PepicHandler) checkSecretCode(c echo.Context) (string, error) {
 		newCookie := new(http.Cookie)
 		newCookie.Name = SecretCodeKey
 		newCookie.Value = code
-		newCookie.Expires = time.Now().Add(SecretCodeCookieTTL)
+		newCookie.Expires = time.Now().Add(time.Duration(config.App.Safety.CookieTTLSeconds) * time.Second)
 		newCookie.HttpOnly = true
+		newCookie.Path = "/"
+		newCookie.SameSite = http.SameSiteLaxMode
+		newCookie.Secure = c.IsTLS() || strings.HasPrefix(config.App.Global.BaseUrl, "https://")
 		c.SetCookie(newCookie)
 	}
 

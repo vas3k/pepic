@@ -3,8 +3,18 @@ global:
   port: 8118
   base_url: "http://0.0.0.0:8118/"  # trailing slash is important
   secret_code: "" # secret word to protect you from strangers (don't use your password here, it's stored as plain text)
-  max_upload_size: "500M" # number + K, M, G, T or P
+  max_upload_size: "50M"
   file_tree_split_chars: 3 # abcde.jpg -> ab/cd/e.jpg (never change this after release!)
+
+canonical_extensions:
+  .jpeg: .jpg
+  .jpe: .jpg
+  .jfif: .jpg
+  .qt: .mov
+  .moov: .mov
+  .f4v: .mp4
+  .tif: .tiff
+  .heic: .heif
 
 storage:
   type: fs
@@ -16,7 +26,7 @@ images:
   auto_convert: false # mime type to auto-convert uploaded images ("image/jpeg", "image/png" or false)
   live_resize: true # enables special URLs that return resized images (increases storage usage)
   jpeg_quality: 95 # default quality of any saved jpeg
-  png_compression: 0  # 0 - default, -1 - no compression, -2 - best speed, -3 - best compression (yes, with minus)
+  png_compression: 6
   gif_convert: "video/mp4"  # video format for auto-converting gifs (turned off then store_originals=true)
 
 videos:
